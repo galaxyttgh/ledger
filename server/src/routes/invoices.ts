@@ -1,0 +1,92 @@
+import express from 'express';
+import pool from '../db/pool.js';
+
+const router = express.Router();
+
+// Get all invoices
+router.get('/', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT i.*, c.name as customer_name, u.full_name as created_by_name
+      FROM invoices i
+      JOIN customers c ON i.customer_id = c.id
+      LEFT JOIN users u ON i.created_by = u.id
+      ORDER BY i.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get invoices error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Create invoice
+router.post('/', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { customer_id, invoice_date, due_date, description, amount } = req.body;
+    const taxRate = 0.075; // 7.5% VAT
+    const subtotal = parseFloat(amount);
+    const taxAmount = subtotal * taxRate;
+    const total = subtotal + taxAmount;
+
+    // Generate invoice number
+    const invoiceNumber = `INV-${Date.now().toString().slice(-8)}`;
+
+    await client.query('BEGIN');
+
+    // Create invoice
+    const invoice = await client.query(`
+      INSERT INTO invoices (invoice_number, customer_id, invoice_date, due_date, description, subtotal, tax_amount, total, status, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'posted', 1)
+      RETURNING *
+    `, [invoiceNumber, customer_id, invoice_date, due_date, description, subtotal, taxAmount, total]);
+
+    // Create journal entry for the invoice
+    const entryNumber = `JV-${Date.now()}`;
+    const journal = await client.query(`
+      INSERT INTO journal_entries (entry_number, description, entry_date, period, status, created_by)
+      VALUES ($1, $2, $3, 'JUL-2026', 'posted', 1)
+      RETURNING id
+    `, [entryNumber, `Invoice ${invoiceNumber} - ${description}`, invoice_date]);
+
+    // Debit Accounts Receivable
+    await client.query(`
+      INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit)
+      VALUES ($1, 5, $2, $3, 0)
+    `, [journal.rows[0].id, `Invoice ${invoiceNumber}`, total]);
+
+    // Credit Revenue
+    await client.query(`
+      INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit)
+      VALUES ($1, 22, $2, 0, $3)
+    `, [journal.rows[0].id, `Revenue from ${invoiceNumber}`, subtotal]);
+
+    // Credit VAT Payable (if tax > 0)
+    if (taxAmount > 0) {
+      await client.query(`
+        INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit)
+        VALUES ($1, 12, $2, 0, $3)
+      `, [journal.rows[0].id, `VAT on ${invoiceNumber}`, taxAmount]);
+    }
+
+    // Update customer balance
+    await client.query(
+      'UPDATE customers SET current_balance = current_balance + $1 WHERE id = $2',
+      [total, customer_id]
+    );
+
+    await client.query('COMMIT');
+
+    res.status(201).json(invoice.rows[0]);
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Create invoice error:', error);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
+
+export default router;
