@@ -290,18 +290,26 @@ const GeneralLedger = () => {
 
   return (
     <Layout>
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">General Ledger</h2>
-          <p className="text-gray-500 mt-1">{entries.length} journal entries</p>
-        </div>
-        <button
-          onClick={() => navigate('/general-ledger/new')}
-          className="px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition shadow-sm"
-        >
-          + New Journal Entry
-        </button>
-      </div>
+    <div className="mb-6 flex justify-between items-center">
+  <div>
+    <h2 className="text-2xl font-bold text-gray-800">General Ledger</h2>
+    <p className="text-gray-500 mt-1">{entries.length} journal entries</p>
+  </div>
+  <div className="flex gap-2">
+    <button
+      onClick={() => navigate('/general-ledger/new')}
+      className="px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition shadow-sm text-sm font-medium"
+    >
+      + New Journal Entry
+    </button>
+    <button
+      onClick={() => navigate('/general-ledger/recurring')}
+      className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
+    >
+      🔄 Recurring
+    </button>
+  </div>
+</div>
 
       {/* Search */}
       <div className="mb-4">

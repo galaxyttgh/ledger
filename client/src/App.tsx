@@ -88,6 +88,10 @@ import Assets from './pages/Assets';
 import EmployeeForm from './pages/EmployeeForm';
 import AssetForm from './pages/AssetForm';
 import BudgetForm from './pages/BudgetForm';
+import CreditNoteForm from './pages/CreditNoteForm';
+import DebitNoteForm from './pages/DebitNoteForm';
+import PeriodClose from './pages/PeriodClose';
+import RecurringJournalForm from './pages/RecurringJournalForm';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -168,6 +172,10 @@ const AppRoutes = () => {
 <Route path="/payroll/employees/new" element={<ProtectedRoute><EmployeeForm /></ProtectedRoute>} />
 <Route path="/assets/new" element={<ProtectedRoute><AssetForm /></ProtectedRoute>} />
 <Route path="/budget/new" element={<ProtectedRoute><BudgetForm /></ProtectedRoute>} />
+<Route path="/invoices/credit-note" element={<ProtectedRoute><CreditNoteForm /></ProtectedRoute>} />
+<Route path="/bills/debit-note" element={<ProtectedRoute><DebitNoteForm /></ProtectedRoute>} />
+<Route path="/period-close" element={<ProtectedRoute><PeriodClose /></ProtectedRoute>} />
+<Route path="/general-ledger/recurring" element={<ProtectedRoute><RecurringJournalForm /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

@@ -36,15 +36,20 @@ const Bills = () => {
 
   return (
     <Layout>
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Bills</h2>
-          <p className="text-gray-500 mt-1">Supplier bills and payables</p>
-        </div>
-        <button onClick={() => navigate('/bills/new')} className="px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition">
-          + Create Bill
-        </button>
-      </div>
+  <div className="mb-6 flex justify-between items-center">
+  <div>
+    <h2 className="text-2xl font-bold text-gray-800">Bills</h2>
+    <p className="text-gray-500 mt-1">Supplier bills and payables</p>
+  </div>
+  <div className="flex gap-2">
+    <button onClick={() => navigate('/bills/new')} className="px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 text-sm font-medium">
+      + Create Bill
+    </button>
+    <button onClick={() => navigate('/bills/debit-note')} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium">
+      + Debit Note
+    </button>
+  </div>
+</div>
 
       {loading ? (
         <div className="text-center py-12 text-gray-500">Loading...</div>

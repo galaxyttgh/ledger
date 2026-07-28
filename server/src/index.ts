@@ -388,6 +388,68 @@ app.get('/api/reports/cash-flow', async (req, res) => {
   }
 });
 
+
+// Period Close
+app.post('/api/periods/close', async (req, res) => {
+  try {
+    const { period } = req.body;
+    const userId = (req as any).userId || 1;
+
+    await pool.query(
+      'INSERT INTO closed_periods (period, closed_by) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [period, userId]
+    );
+
+    await pool.query(
+      `INSERT INTO audit_logs (user_id, action, table_name, new_values)
+       VALUES ($1, 'PERIOD_CLOSE', 'periods', $2)`,
+      [userId, JSON.stringify({ period, status: 'closed' })]
+    );
+
+    res.json({ message: `Period ${period} closed successfully` });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Check if period is closed
+app.get('/api/periods/check/:period', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM closed_periods WHERE period = $1', [req.params.period]);
+    res.json({ closed: result.rows.length > 0 });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get closed periods
+app.get('/api/periods', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT cp.*, u.full_name as closed_by_name
+      FROM closed_periods cp
+      LEFT JOIN users u ON cp.closed_by = u.id
+      ORDER BY cp.period DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Reopen period
+app.post('/api/periods/reopen', async (req, res) => {
+  try {
+    const { period } = req.body;
+    await pool.query('DELETE FROM closed_periods WHERE period = $1', [period]);
+    res.json({ message: `Period ${period} reopened` });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
