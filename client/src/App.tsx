@@ -82,6 +82,12 @@ import APAging from './pages/APAging';
 import CashFlow from './pages/CashFlow';
 import ResetPassword from './pages/ResetPassword';
 import ForgotPassword from './pages/ForgotPassword';
+import Payroll from './pages/Payroll';
+import Budget from './pages/Budget';
+import Assets from './pages/Assets';
+import EmployeeForm from './pages/EmployeeForm';
+import AssetForm from './pages/AssetForm';
+import BudgetForm from './pages/BudgetForm';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -156,6 +162,12 @@ const AppRoutes = () => {
 <Route path="/cash-flow" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />
 <Route path="/forgot-password" element={<ForgotPassword />} />
 <Route path="/reset-password" element={<ResetPassword />} />
+<Route path="/payroll" element={<ProtectedRoute><Payroll /></ProtectedRoute>} />
+<Route path="/budget" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
+<Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
+<Route path="/payroll/employees/new" element={<ProtectedRoute><EmployeeForm /></ProtectedRoute>} />
+<Route path="/assets/new" element={<ProtectedRoute><AssetForm /></ProtectedRoute>} />
+<Route path="/budget/new" element={<ProtectedRoute><BudgetForm /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

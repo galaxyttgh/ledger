@@ -15,9 +15,12 @@ import paymentRoutes from './routes/payments.js';
 import documentRoutes from './routes/documents.js';
 import bankingRoutes from './routes/banking.js';
 import approvalRoutes from './routes/approvals.js';
-
+import branchRoutes from './routes/branches.js';
+import payrollRoutes from './routes/payroll.js';
 import pool from './db/pool.js';
 import { authMiddleware } from './middleware/auth.js';
+import budgetRoutes from './routes/budgets.js';
+import assetRoutes from './routes/assets.js';
 
 dotenv.config();
 
@@ -51,7 +54,10 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/banking', bankingRoutes);
 app.use('/api/approvals', approvalRoutes);
-
+app.use('/api/branches', branchRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/budgets', budgetRoutes);
+app.use('/api/assets', assetRoutes);
 // Test route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PrimeLedger API is running' });
