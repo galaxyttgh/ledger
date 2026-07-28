@@ -115,5 +115,48 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Create debit note
+router.post('/debit-note', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { supplier_id, amount, reason } = req.body;
+    const debitAmount = parseFloat(amount);
+    const noteNumber = `DN-${Date.now().toString().slice(-8)}`;
+
+    await client.query('BEGIN');
+
+    await client.query(`
+      INSERT INTO bills (bill_number, supplier_id, bill_date, due_date, description, subtotal, tax_amount, total, status, created_by)
+      VALUES ($1, $2, CURRENT_DATE, CURRENT_DATE, $3, 0, 0, $4, 'debit_note', $5)
+    `, [noteNumber, supplier_id, reason || 'Debit Note', -debitAmount, (req as any).userId || 1]);
+
+    const entryNumber = `JV-${Date.now()}`;
+    const journal = await client.query(`
+      INSERT INTO journal_entries (entry_number, description, entry_date, period, status, created_by)
+      VALUES ($1, $2, CURRENT_DATE, 'JUL-2026', 'posted', $3) RETURNING id
+    `, [entryNumber, `Debit Note ${noteNumber}`, (req as any).userId || 1]);
+
+    // Dr AP, Cr Expense
+    await client.query(
+      'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, 11, $2, $3, 0)',
+      [journal.rows[0].id, 'AP reduction', debitAmount]
+    );
+    await client.query(
+      'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, 27, $2, 0, $3)',
+      [journal.rows[0].id, 'Expense reversal', debitAmount]
+    );
+
+    await client.query('UPDATE suppliers SET current_balance = current_balance - $1 WHERE id = $2', [debitAmount, supplier_id]);
+
+    await client.query('COMMIT');
+    res.status(201).json({ message: 'Debit note created', note_number: noteNumber });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
 
 export default router;

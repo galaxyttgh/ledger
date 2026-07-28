@@ -56,6 +56,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     { path: '/payroll', label: 'Payroll', icon: '💵' },
     { path: '/budget', label: 'Budget vs Actual', icon: '📉' },
     { path: '/assets', label: 'Fixed Assets', icon: '🏗️' },
+    { path: '/period-close', label: 'Period Close', icon: '🔒' },
   ];
 
   return (

@@ -79,6 +79,12 @@ router.post('/', authMiddleware, async (req, res) => {
   try {
     // Validate input
     const validation = journalSchema.safeParse(req.body);
+    // Check if period is closed
+const periodCheck = await pool.query('SELECT * FROM closed_periods WHERE period = $1', [req.body.period]);
+if (periodCheck.rows.length > 0) {
+  res.status(400).json({ error: `Period ${req.body.period} is closed. Cannot post entries.` });
+  return;
+}
     if (!validation.success) {
       res.status(400).json({ error: 'Validation failed', details: validation.error.issues });
       return;
@@ -205,6 +211,87 @@ router.get('/reports/trial-balance', async (req, res) => {
   } catch (error) {
     console.error('Trial balance error:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// Create recurring journal template
+router.post('/recurring', async (req, res) => {
+  try {
+    const { description, frequency, next_run_date, lines } = req.body;
+    const userId = (req as any).userId || 1;
+
+    const result = await pool.query(
+      'INSERT INTO recurring_journals (description, frequency, next_run_date, created_by) VALUES ($1, $2, $3, $4) RETURNING *',
+      [description, frequency, next_run_date, userId]
+    );
+
+    for (const line of lines) {
+      await pool.query(
+        'INSERT INTO recurring_journal_lines (recurring_id, account_id, description, debit, credit) VALUES ($1, $2, $3, $4, $5)',
+        [result.rows[0].id, line.account_id, line.description, line.debit || 0, line.credit || 0]
+      );
+    }
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Create recurring error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get recurring journals
+router.get('/recurring', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM recurring_journals WHERE is_active = true ORDER BY next_run_date');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Generate recurring entries due today
+router.post('/recurring/generate', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const due = await client.query(
+      "SELECT * FROM recurring_journals WHERE is_active = true AND next_run_date <= CURRENT_DATE"
+    );
+
+    let generated = 0;
+    for (const rec of due.rows) {
+      const lines = await client.query('SELECT * FROM recurring_journal_lines WHERE recurring_id = $1', [rec.id]);
+      
+      const entryNumber = `JV-REC-${Date.now()}-${generated}`;
+      const journal = await client.query(
+        `INSERT INTO journal_entries (entry_number, description, entry_date, period, status, created_by)
+         VALUES ($1, $2, CURRENT_DATE, 'JUL-2026', 'posted', $3) RETURNING id`,
+        [entryNumber, rec.description, rec.created_by]
+      );
+
+      for (const line of lines.rows) {
+        await client.query(
+          'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, $2, $3, $4, $5)',
+          [journal.rows[0].id, line.account_id, line.description, line.debit, line.credit]
+        );
+      }
+
+      // Update next run date
+      const nextDate = new Date(rec.next_run_date);
+      nextDate.setMonth(nextDate.getMonth() + 1);
+      await client.query('UPDATE recurring_journals SET next_run_date = $1 WHERE id = $2', [
+        nextDate.toISOString().split('T')[0], rec.id
+      ]);
+
+      generated++;
+    }
+
+    res.json({ message: `Generated ${generated} recurring entries`, generated });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
   }
 });
 
