@@ -1,14 +1,20 @@
 import express from 'express';
 import pool from '../db/pool.js';
+import { z } from 'zod';
+
+const customerSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  phone: z.string().optional().or(z.literal('')),
+  address: z.string().optional().or(z.literal('')),
+});
 
 const router = express.Router();
 
 // Get all customers
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM customers ORDER BY name'
-    );
+    const result = await pool.query('SELECT * FROM customers ORDER BY name');
     res.json(result.rows);
   } catch (error) {
     console.error('Get customers error:', error);
@@ -34,9 +40,14 @@ router.get('/:id', async (req, res) => {
 // Create customer
 router.post('/', async (req, res) => {
   try {
+    const validation = customerSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: 'Validation failed', details: validation.error.issues });
+      return;
+    }
+
     const { name, email, phone, address } = req.body;
-    
-    // Generate customer code
+    const userId = (req as any).userId || 1;
     const code = `CUST-${Date.now().toString().slice(-6)}`;
 
     const result = await pool.query(
@@ -45,11 +56,10 @@ router.post('/', async (req, res) => {
       [code, name, email, phone, address]
     );
 
-    // Audit log
     await pool.query(
       `INSERT INTO audit_logs (user_id, action, table_name, record_id, new_values)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [1, 'CREATE', 'customers', result.rows[0].id, JSON.stringify(result.rows[0])]
+       VALUES ($1, 'CREATE', 'customers', $2, $3)`,
+      [userId, result.rows[0].id, JSON.stringify(result.rows[0])]
     );
 
     res.status(201).json(result.rows[0]);

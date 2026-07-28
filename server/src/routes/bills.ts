@@ -1,6 +1,16 @@
 import express from 'express';
 import pool from '../db/pool.js';
 
+import { z } from 'zod';
+
+const billSchema = z.object({
+  supplier_id: z.number().min(1),
+  bill_date: z.string().min(1),
+  due_date: z.string().min(1),
+  description: z.string().min(1),
+  amount: z.number().positive('Amount must be positive'),
+});
+
 const router = express.Router();
 
 // Get all bills
@@ -21,14 +31,24 @@ router.get('/', async (req, res) => {
 });
 
 // Create bill
+// Create bill
 router.post('/', async (req, res) => {
   const client = await pool.connect();
+  
   try {
+    // Validate input
+    const validation = billSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: 'Validation failed', details: validation.error.issues });
+      return;
+    }
+
     const { supplier_id, bill_date, due_date, description, amount } = req.body;
     const subtotal = parseFloat(amount);
     const vatRate = 0.075;
     const taxAmount = subtotal * vatRate;
     const total = subtotal + taxAmount;
+    const userId = (req as any).userId || 1;
 
     const billNumber = `BILL-${Date.now().toString().slice(-8)}`;
 
@@ -37,25 +57,25 @@ router.post('/', async (req, res) => {
     // Create bill
     const bill = await client.query(`
       INSERT INTO bills (bill_number, supplier_id, bill_date, due_date, description, subtotal, tax_amount, total, status, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'posted', 1)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'posted', $9)
       RETURNING *
-    `, [billNumber, supplier_id, bill_date, due_date, description, subtotal, taxAmount, total]);
+    `, [billNumber, supplier_id, bill_date, due_date, description, subtotal, taxAmount, total, userId]);
 
     // Create journal entry
     const entryNumber = `JV-${Date.now()}`;
     const journal = await client.query(`
       INSERT INTO journal_entries (entry_number, description, entry_date, period, status, created_by)
-      VALUES ($1, $2, $3, 'JUL-2026', 'posted', 1)
+      VALUES ($1, $2, $3, 'JUL-2026', 'posted', $4)
       RETURNING id
-    `, [entryNumber, `Bill ${billNumber} - ${description}`, bill_date]);
+    `, [entryNumber, `Bill ${billNumber} - ${description}`, bill_date, userId]);
 
-    // Debit Expense (using Office Supplies account 5400)
+    // Debit Expense
     await client.query(`
       INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit)
       VALUES ($1, 27, $2, $3, 0)
     `, [journal.rows[0].id, `Expense from ${billNumber}`, subtotal]);
 
-    // Debit VAT (if applicable)
+    // Debit VAT
     if (taxAmount > 0) {
       await client.query(`
         INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit)
@@ -75,6 +95,13 @@ router.post('/', async (req, res) => {
       [total, supplier_id]
     );
 
+    // Audit log
+    await client.query(
+      `INSERT INTO audit_logs (user_id, action, table_name, record_id, new_values)
+       VALUES ($1, 'CREATE', 'bills', $2, $3)`,
+      [userId, bill.rows[0].id, JSON.stringify({ bill_number: billNumber, amount: total })]
+    );
+
     await client.query('COMMIT');
 
     res.status(201).json(bill.rows[0]);
@@ -87,5 +114,6 @@ router.post('/', async (req, res) => {
     client.release();
   }
 });
+
 
 export default router;

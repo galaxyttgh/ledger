@@ -1,5 +1,14 @@
 import express from 'express';
 import pool from '../db/pool.js';
+import { z } from 'zod';
+
+const invoiceSchema = z.object({
+  customer_id: z.number().min(1),
+  invoice_date: z.string().min(1),
+  due_date: z.string().min(1),
+  description: z.string().min(1),
+  amount: z.number().positive('Amount must be positive'),
+});
 
 const router = express.Router();
 
@@ -23,6 +32,11 @@ router.get('/', async (req, res) => {
 // Create invoice
 router.post('/', async (req, res) => {
   const client = await pool.connect();
+  const validation = invoiceSchema.safeParse(req.body);
+if (!validation.success) {
+  res.status(400).json({ error: 'Validation failed', details: validation.error.issues });
+  return;
+}
   try {
     const { customer_id, invoice_date, due_date, description, amount } = req.body;
     const taxRate = 0.075; // 7.5% VAT
