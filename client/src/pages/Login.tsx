@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -72,6 +73,11 @@ const Login = () => {
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
+          <div className="mt-4 text-center">
+  <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-800">
+    Forgot password?
+  </Link>
+</div>
         </form>
       </div>
     </div>
