@@ -72,6 +72,14 @@ import ReceiptForm from './pages/ReceiptForm';
 import Payments from './pages/Payments';
 import PaymentForm from './pages/PaymentForm';
 import BalanceSheet from './pages/BalanceSheet';
+import BankReconciliation from './pages/BankReconciliation';
+import Approvals from './pages/Approvals';
+import ApprovalRules from './pages/ApprovalRules';
+import { Toaster } from 'react-hot-toast';
+import AuditTrail from './pages/AuditTrail';
+import ARAging from './pages/ARAging';
+import APAging from './pages/APAging';
+import CashFlow from './pages/CashFlow';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -137,6 +145,13 @@ const AppRoutes = () => {
 <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
 <Route path="/payments/new" element={<ProtectedRoute><PaymentForm /></ProtectedRoute>} />
 <Route path="/balance-sheet" element={<ProtectedRoute><BalanceSheet /></ProtectedRoute>} />
+<Route path="/bank-reconciliation" element={<ProtectedRoute><BankReconciliation /></ProtectedRoute>} />
+<Route path="/approvals" element={<ProtectedRoute><Approvals /></ProtectedRoute>} />
+<Route path="/approval-rules" element={<ProtectedRoute><ApprovalRules /></ProtectedRoute>} />
+<Route path="/audit-trail" element={<ProtectedRoute><AuditTrail /></ProtectedRoute>} />
+<Route path="/ar-aging" element={<ProtectedRoute><ARAging /></ProtectedRoute>} />
+<Route path="/ap-aging" element={<ProtectedRoute><APAging /></ProtectedRoute>} />
+<Route path="/cash-flow" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
@@ -146,6 +161,7 @@ const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <Toaster position="top-right" />
         <AppRoutes />
       </AuthProvider>
     </BrowserRouter>

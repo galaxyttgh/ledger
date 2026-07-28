@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import Layout from '../components/Layout';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { ReportPDF, PDFRow, PDFTotal } from '../components/pdf/ReportPDF';
+import { Text } from '@react-pdf/renderer';
 
 interface LineItem {
   code: string;
@@ -35,13 +38,50 @@ const IncomeStatement = () => {
     }
   };
 
+  const IncomeStatementPDF = ({ data }: { data: any }) => (
+  <ReportPDF title="Income Statement" subtitle="July 2026">
+    <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12, marginBottom: 4 }}>Revenue</Text>
+    {data.revenue.map((item: any) => (
+      <PDFRow key={item.code} label={`${item.code} — ${item.name}`} value={`NGN ${item.amount.toLocaleString()}`} />
+    ))}
+    <PDFTotal label="Total Revenue" value={`NGN ${data.totalRevenue.toLocaleString()}`} />
+    
+    <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12, marginBottom: 4 }}>Expenses</Text>
+    {data.expenses.map((item: any) => (
+      <PDFRow key={item.code} label={`${item.code} — ${item.name}`} value={`NGN ${item.amount.toLocaleString()}`} />
+    ))}
+    <PDFTotal label="Total Expenses" value={`NGN ${data.totalExpenses.toLocaleString()}`} />
+    
+    <PDFTotal label={data.netIncome >= 0 ? 'Net Profit' : 'Net Loss'} value={`NGN ${Math.abs(data.netIncome).toLocaleString()}`} />
+  </ReportPDF>
+);
   return (
     <Layout>
-      <div className="mb-6">
+      {/* <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Income Statement</h2>
         <p className="text-gray-500 mt-1">Profit & Loss Report</p>
-      </div>
+      </div> */}
 
+<div className="mb-6 flex justify-between items-center">
+  <div>
+    <h2 className="text-2xl font-bold text-gray-800">Income Statement</h2>
+    <p className="text-gray-500 mt-1">Profit & Loss Report</p>
+  </div>
+  <div className="flex gap-2 no-print">
+    <button onClick={() => window.print()} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">
+      🖨️ Print
+    </button>
+    {data && (
+      <PDFDownloadLink
+        document={<IncomeStatementPDF data={data} />}
+        fileName="Income_Statement_July_2026.pdf"
+        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+      >
+        📄 Export PDF
+      </PDFDownloadLink>
+    )}
+  </div>
+</div>
       {loading ? (
         <div className="text-center py-12 text-gray-500">Loading...</div>
       ) : data ? (
