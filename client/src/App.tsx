@@ -67,6 +67,11 @@ import SupplierForm from './pages/SupplierForm';
 import Bills from './pages/Bills';
 import BillForm from './pages/BillForm';
 import IncomeStatement from './pages/IncomeStatement';
+import Receipts from './pages/Receipts';
+import ReceiptForm from './pages/ReceiptForm';
+import Payments from './pages/Payments';
+import PaymentForm from './pages/PaymentForm';
+import BalanceSheet from './pages/BalanceSheet';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -127,6 +132,11 @@ const AppRoutes = () => {
 <Route path="/bills" element={<ProtectedRoute><Bills /></ProtectedRoute>} />
 <Route path="/bills/new" element={<ProtectedRoute><BillForm /></ProtectedRoute>} />
 <Route path="/income-statement" element={<ProtectedRoute><IncomeStatement /></ProtectedRoute>} />
+<Route path="/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
+<Route path="/receipts/new" element={<ProtectedRoute><ReceiptForm /></ProtectedRoute>} />
+<Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+<Route path="/payments/new" element={<ProtectedRoute><PaymentForm /></ProtectedRoute>} />
+<Route path="/balance-sheet" element={<ProtectedRoute><BalanceSheet /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

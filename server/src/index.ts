@@ -10,6 +10,9 @@ import customerRoutes from './routes/customers.js';
 import invoiceRoutes from './routes/invoices.js';
 import supplierRoutes from './routes/suppliers.js';
 import billRoutes from './routes/bills.js';
+import receiptRoutes from './routes/receipts.js';
+import paymentRoutes from './routes/payments.js';
+import documentRoutes from './routes/documents.js';
 import pool from './db/pool.js';
 
 dotenv.config();
@@ -27,6 +30,8 @@ createTables()
   .then(() => console.log('Database initialized and seeded'))
   .catch(err => console.error('Database init failed:', err));
 
+
+  app.use('/uploads', express.static('uploads'));
 // Routes
 
 app.use('/api/auth', authRoutes);
@@ -36,6 +41,9 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/bills', billRoutes);
+app.use('/api/receipts', receiptRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/documents', documentRoutes);
 // Test route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PrimeLedger API is running' });
@@ -104,6 +112,84 @@ app.get('/api/reports/income-statement', async (req, res) => {
 
   } catch (error) {
     console.error('Income statement error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Balance Sheet
+// Balance Sheet
+app.get('/api/reports/balance-sheet', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        a.type,
+        a.code,
+        a.name,
+        CASE 
+          WHEN a.type IN ('asset', 'expense') THEN
+            COALESCE(SUM(jl.debit), 0) - COALESCE(SUM(jl.credit), 0)
+          ELSE
+            COALESCE(SUM(jl.credit), 0) - COALESCE(SUM(jl.debit), 0)
+        END as balance
+      FROM accounts a
+      LEFT JOIN journal_lines jl ON a.id = jl.account_id
+      LEFT JOIN journal_entries je ON jl.journal_entry_id = je.id AND je.status = 'posted'
+      WHERE a.type IN ('asset', 'liability', 'equity', 'revenue', 'expense')
+      GROUP BY a.id, a.code, a.name, a.type
+      ORDER BY a.code
+    `);
+
+    const assets = result.rows
+      .filter(r => r.type === 'asset')
+      .map(r => ({ code: r.code, name: r.name, amount: Number(r.balance) }))
+      .filter(r => r.amount !== 0);
+
+    const liabilities = result.rows
+      .filter(r => r.type === 'liability')
+      .map(r => ({ code: r.code, name: r.name, amount: Math.abs(Number(r.balance)) }))
+      .filter(r => r.amount !== 0);
+
+    // Calculate net income (Revenue - Expenses)
+    const totalRevenue = result.rows
+      .filter(r => r.type === 'revenue')
+      .reduce((sum, r) => sum + Math.abs(Number(r.balance)), 0);
+    
+    const totalExpenses = result.rows
+      .filter(r => r.type === 'expense')
+      .reduce((sum, r) => sum + Number(r.balance), 0);
+    
+    const netIncome = totalRevenue - totalExpenses;
+
+    const equity = result.rows
+      .filter(r => r.type === 'equity')
+      .map(r => ({ code: r.code, name: r.name, amount: Math.abs(Number(r.balance)) }));
+
+    // Add net income to equity
+    if (netIncome !== 0) {
+      equity.push({
+        code: 'NET',
+        name: 'Current Period Net Income',
+        amount: netIncome,
+      });
+    }
+
+    const totalAssets = assets.reduce((sum, a) => sum + a.amount, 0);
+    const totalLiabilities = liabilities.reduce((sum, l) => sum + l.amount, 0);
+    const totalEquity = equity.reduce((sum, e) => sum + e.amount, 0);
+
+    res.json({
+      assets,
+      totalAssets,
+      liabilities,
+      totalLiabilities,
+      equity,
+      totalEquity,
+      totalLiabilitiesAndEquity: totalLiabilities + totalEquity,
+      netIncome,
+    });
+
+  } catch (error) {
+    console.error('Balance sheet error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
