@@ -151,6 +151,34 @@ const createTables = async () => {
       );
     `);
 
+        // Receipts
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS receipts (
+        id SERIAL PRIMARY KEY,
+        receipt_number VARCHAR(50) UNIQUE NOT NULL,
+        customer_id INTEGER REFERENCES customers(id),
+        invoice_id INTEGER REFERENCES invoices(id),
+        amount DECIMAL(15,2) NOT NULL,
+        payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        payment_method VARCHAR(50) DEFAULT 'bank_transfer',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    // Payments
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id SERIAL PRIMARY KEY,
+        payment_number VARCHAR(50) UNIQUE NOT NULL,
+        supplier_id INTEGER REFERENCES suppliers(id),
+        bill_id INTEGER REFERENCES bills(id),
+        amount DECIMAL(15,2) NOT NULL,
+        payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        payment_method VARCHAR(50) DEFAULT 'bank_transfer',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
     await client.query('COMMIT');
     console.log('Database tables created successfully');
     

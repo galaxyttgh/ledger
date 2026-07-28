@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import Layout from '../components/Layout';
 import { useNavigate } from 'react-router-dom';
+import DocumentUpload from '../components/DocumentUpload';
 
 interface JournalEntry {
   id: number;
@@ -193,9 +194,11 @@ const GeneralLedger = () => {
                     </td>
                   </tr>
                 </tfoot>
+                     <DocumentUpload transactionType="journal" transactionId={selectedEntry.id} />
               </table>
             </div>
           </div>
+
         </div>
       )}
     </Layout>
