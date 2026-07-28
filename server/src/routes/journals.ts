@@ -1,5 +1,20 @@
 import express from 'express';
 import pool from '../db/pool.js';
+import { z } from 'zod';
+
+
+const journalSchema = z.object({
+  description: z.string().min(1, 'Description is required'),
+  entry_date: z.string().min(1, 'Date is required'),
+  period: z.string().min(1, 'Period is required'),
+  branch_id: z.number().optional().nullable(),
+  lines: z.array(z.object({
+    account_id: z.number().min(1, 'Account is required'),
+    description: z.string().optional(),
+    debit: z.number().min(0),
+    credit: z.number().min(0),
+  })).min(2, 'At least 2 lines required'),
+});
 
 const router = express.Router();
 
@@ -62,6 +77,13 @@ router.post('/', authMiddleware, async (req, res) => {
   const client = await pool.connect();
   
   try {
+    // Validate input
+    const validation = journalSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ error: 'Validation failed', details: validation.error.issues });
+      return;
+    }
+
     const { description, entry_date, period, branch_id, lines } = req.body;
 
     // Validate lines exist

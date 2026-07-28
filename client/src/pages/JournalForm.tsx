@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import Layout from '../components/Layout';
+import toast from 'react-hot-toast';
+import Breadcrumb from '../components/Breadcrumb';
 
 interface Account {
   id: number;
@@ -39,6 +41,7 @@ const JournalForm = () => {
       const response = await api.get('/accounts');
       setAccounts(response.data);
     } catch (error) {
+      toast.error('Failed to fetch accounts');
       console.error('Failed to fetch accounts:', error);
     }
   };
@@ -101,7 +104,7 @@ const JournalForm = () => {
       });
       navigate('/general-ledger');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to create journal entry');
+      toast.error(err.response?.data?.error || 'Failed to create journal entry');
     } finally {
       setLoading(false);
     }
@@ -281,6 +284,11 @@ const JournalForm = () => {
           </button>
         </form>
       </div>
+      <Breadcrumb items={[
+  { label: 'Dashboard', path: '/dashboard' },
+  { label: 'General Ledger', path: '/general-ledger' },
+  { label: 'New Journal Entry' },
+]} />
     </Layout>
   );
 };

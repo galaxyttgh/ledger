@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import Layout from '../components/Layout';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { ReportPDF, PDFRow, PDFTotal } from '../components/pdf/ReportPDF';
+import { Text } from '@react-pdf/renderer';
 
 interface LineItem {
   code: string;
@@ -37,6 +40,31 @@ const BalanceSheet = () => {
     }
   };
 
+
+  const BalanceSheetPDF = ({ data }: { data: any }) => (
+  <ReportPDF title="Balance Sheet" subtitle="July 2026">
+    <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12, marginBottom: 4 }}>Assets</Text>
+    {data.assets.map((item: any) => (
+      <PDFRow key={item.code} label={`${item.code} — ${item.name}`} value={`NGN ${item.amount.toLocaleString()}`} />
+    ))}
+    <PDFTotal label="Total Assets" value={`NGN ${data.totalAssets.toLocaleString()}`} />
+    
+    <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12, marginBottom: 4 }}>Liabilities</Text>
+    {data.liabilities.map((item: any) => (
+      <PDFRow key={item.code} label={`${item.code} — ${item.name}`} value={`NGN ${item.amount.toLocaleString()}`} />
+    ))}
+    <PDFTotal label="Total Liabilities" value={`NGN ${data.totalLiabilities.toLocaleString()}`} />
+    
+    <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12, marginBottom: 4 }}>Equity</Text>
+    {data.equity.map((item: any) => (
+      <PDFRow key={item.code} label={`${item.code} — ${item.name}`} value={`NGN ${item.amount.toLocaleString()}`} />
+    ))}
+    <PDFTotal label="Total Equity" value={`NGN ${data.totalEquity.toLocaleString()}`} />
+    
+    <PDFTotal label="Total Liabilities + Equity" value={`NGN ${data.totalLiabilitiesAndEquity.toLocaleString()}`} />
+  </ReportPDF>
+);
+
   const renderSection = (title: string, items: LineItem[], total: number, color: string) => (
     <div className="mb-6">
       <h4 className={`text-lg font-semibold mb-3 border-b pb-2 ${color}`}>{title}</h4>
@@ -59,10 +87,26 @@ const BalanceSheet = () => {
 
   return (
     <Layout>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Balance Sheet</h2>
-        <p className="text-gray-500 mt-1">Assets = Liabilities + Equity</p>
-      </div>
+    <div className="mb-6 flex justify-between items-center">
+  <div>
+    <h2 className="text-2xl font-bold text-gray-800">Balance Sheet</h2>
+    <p className="text-gray-500 mt-1">Assets = Liabilities + Equity</p>
+  </div>
+  <div className="flex gap-2 no-print">
+    <button onClick={() => window.print()} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">
+      🖨️ Print
+    </button>
+    {data && (
+      <PDFDownloadLink
+        document={<BalanceSheetPDF data={data} />}
+        fileName="Balance_Sheet_July_2026.pdf"
+        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+      >
+        📄 Export PDF
+      </PDFDownloadLink>
+    )}
+  </div>
+</div>
 
       {loading ? (
         <div className="text-center py-12 text-gray-500">Loading...</div>

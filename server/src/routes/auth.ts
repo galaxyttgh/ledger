@@ -2,11 +2,25 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../db/pool.js';
+import rateLimit from 'express-rate-limit';
+
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts
+  message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: { error: 'Too many registration attempts. Please try again later.' },
+});
 
 const router = express.Router();
 
 // Register
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
    
   try {
     const { email, password, full_name, role } = req.body;
@@ -49,7 +63,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 

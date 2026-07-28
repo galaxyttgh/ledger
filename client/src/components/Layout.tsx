@@ -104,6 +104,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     { path: '/trial-balance', label: 'Trial Balance', icon: '📊' },
     { path: '/income-statement', label: 'P&L Report', icon: '📈' },
     { path: '/balance-sheet', label: 'Balance Sheet', icon: '📋' },
+    { path: '/bank-reconciliation', label: 'Bank Rec', icon: '🏦' },
+    { path: '/approvals', label: 'Approvals', icon: '✅' },
+    { path: '/approval-rules', label: 'Approval Rules', icon: '⚙️' },
+    { path: '/audit-trail', label: 'Audit Trail', icon: '🔍' },
+    { path: '/ar-aging', label: 'AR Aging', icon: '⏰' },
+    { path: '/ap-aging', label: 'AP Aging', icon: '📅' },
+    { path: '/cash-flow', label: 'Cash Flow', icon: '💵' },
   ];
 
   return (
@@ -150,5 +157,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     </div>
   );
 };
+
+
 
 export default Layout;
