@@ -117,4 +117,87 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
+import crypto from 'crypto';
+
+// Forgot Password - Send reset link
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Find user
+    const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (user.rows.length === 0) {
+      // Don't reveal if email exists or not
+      res.json({ message: 'If that email exists, a reset link has been sent.' });
+      return;
+    }
+
+    // Generate token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 3600000); // 1 hour
+
+    await pool.query(
+      'INSERT INTO password_resets (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      [user.rows[0].id, token, expiresAt]
+    );
+
+    // In production, send email here. For now, return the token.
+    console.log(`Password reset token for ${email}: ${token}`);
+    
+    res.json({ 
+      message: 'If that email exists, a reset link has been sent.',
+      // Only in development:
+      token: token,
+      resetUrl: `http://localhost:5173/reset-password?token=${token}`
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Reset Password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    // Find valid token
+    const reset = await pool.query(
+      'SELECT * FROM password_resets WHERE token = $1 AND used = false AND expires_at > NOW()',
+      [token]
+    );
+
+    if (reset.rows.length === 0) {
+      res.status(400).json({ error: 'Invalid or expired reset token' });
+      return;
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [
+      hashedPassword,
+      reset.rows[0].user_id,
+    ]);
+
+    // Mark token as used
+    await pool.query('UPDATE password_resets SET used = true WHERE id = $1', [reset.rows[0].id]);
+
+    // Audit log
+    await pool.query(
+      `INSERT INTO audit_logs (user_id, action, table_name, record_id)
+       VALUES ($1, 'PASSWORD_RESET', 'users', $1)`,
+      [reset.rows[0].user_id]
+    );
+
+    res.json({ message: 'Password reset successfully' });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 export default router;

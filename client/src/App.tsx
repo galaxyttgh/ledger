@@ -80,6 +80,8 @@ import AuditTrail from './pages/AuditTrail';
 import ARAging from './pages/ARAging';
 import APAging from './pages/APAging';
 import CashFlow from './pages/CashFlow';
+import ResetPassword from './pages/ResetPassword';
+import ForgotPassword from './pages/ForgotPassword';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -152,6 +154,8 @@ const AppRoutes = () => {
 <Route path="/ar-aging" element={<ProtectedRoute><ARAging /></ProtectedRoute>} />
 <Route path="/ap-aging" element={<ProtectedRoute><APAging /></ProtectedRoute>} />
 <Route path="/cash-flow" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />
+<Route path="/forgot-password" element={<ForgotPassword />} />
+<Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
