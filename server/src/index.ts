@@ -448,7 +448,224 @@ app.post('/api/periods/reopen', async (req, res) => {
   }
 });
 
+// VAT Return Schedule
+app.get('/api/reports/vat-schedule', async (req, res) => {
+  try {
+    // VAT Collected (Output VAT) - from invoices
+    const outputVAT = await pool.query(`
+      SELECT COALESCE(SUM(tax_amount), 0) as total
+      FROM invoices
+      WHERE status IN ('posted', 'paid')
+    `);
 
+    // VAT Paid (Input VAT) - from bills
+    const inputVAT = await pool.query(`
+      SELECT COALESCE(SUM(tax_amount), 0) as total
+      FROM bills
+      WHERE status IN ('posted', 'paid')
+    `);
+
+    // VAT on credit notes (refunds reduce output VAT)
+    const creditNoteVAT = await pool.query(`
+      SELECT COALESCE(SUM(ABS(tax_amount)), 0) as total
+      FROM invoices
+      WHERE status = 'credit_note'
+    `);
+
+    // VAT on debit notes (refunds reduce input VAT)
+    const debitNoteVAT = await pool.query(`
+      SELECT COALESCE(SUM(ABS(tax_amount)), 0) as total
+      FROM bills
+      WHERE status = 'debit_note'
+    `);
+
+    const totalOutputVAT = parseFloat(outputVAT.rows[0].total) - parseFloat(creditNoteVAT.rows[0].total);
+    const totalInputVAT = parseFloat(inputVAT.rows[0].total) - parseFloat(debitNoteVAT.rows[0].total);
+    const netVATPayable = totalOutputVAT - totalInputVAT;
+
+    // Get transaction details
+    const outputDetails = await pool.query(`
+      SELECT invoice_number, invoice_date, customer_id, subtotal, tax_amount, total, status
+      FROM invoices WHERE status IN ('posted', 'paid', 'credit_note')
+      ORDER BY invoice_date
+    `);
+
+    const inputDetails = await pool.query(`
+      SELECT bill_number, bill_date, supplier_id, subtotal, tax_amount, total, status
+      FROM bills WHERE status IN ('posted', 'paid', 'debit_note')
+      ORDER BY bill_date
+    `);
+
+    res.json({
+      outputVAT: totalOutputVAT,
+      inputVAT: totalInputVAT,
+      netVATPayable,
+      outputDetails: outputDetails.rows,
+      inputDetails: inputDetails.rows,
+    });
+  } catch (error) {
+    console.error('VAT schedule error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// WHT Certificate
+app.get('/api/reports/wht-certificates', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        s.id, s.name as supplier_name, s.tax_id,
+        b.id as bill_id, b.bill_number, b.bill_date, b.subtotal, b.tax_amount, b.total,
+        COALESCE(SUM(p.amount), 0) as paid_amount
+      FROM bills b
+      JOIN suppliers s ON b.supplier_id = s.id
+      LEFT JOIN payments p ON b.id = p.bill_id
+      WHERE b.status IN ('posted', 'paid')
+      GROUP BY s.id, s.name, s.tax_id, b.id, b.bill_number, b.bill_date, b.subtotal, b.tax_amount, b.total
+      HAVING b.total > 0
+    `);
+
+    const certificates = result.rows.map(row => ({
+      ...row,
+      wht_rate: 5, // 5% WHT
+      wht_amount: parseFloat(row.subtotal) * 0.05,
+      net_payment: parseFloat(row.total) - (parseFloat(row.subtotal) * 0.05),
+    }));
+
+    res.json(certificates);
+  } catch (error) {
+    console.error('WHT error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Tax Rates
+app.get('/api/tax-rates', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM tax_rates WHERE is_active = true ORDER BY name');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.put('/api/tax-rates/:id', async (req, res) => {
+  try {
+    const { rate } = req.body;
+    await pool.query('UPDATE tax_rates SET rate = $1 WHERE id = $2', [rate, req.params.id]);
+    res.json({ message: 'Tax rate updated' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Customer Statement
+app.get('/api/reports/customer-statement/:id', async (req, res) => {
+  try {
+    const customer = await pool.query('SELECT * FROM customers WHERE id = $1', [req.params.id]);
+    if (customer.rows.length === 0) {
+      res.status(404).json({ error: 'Customer not found' });
+      return;
+    }
+
+    const invoices = await pool.query(`
+      SELECT invoice_number, invoice_date, due_date, total, status, 'invoice' as type
+      FROM invoices WHERE customer_id = $1
+      UNION ALL
+      SELECT receipt_number, payment_date, null, amount, 'receipt' as type, 'receipt'
+      FROM receipts WHERE customer_id = $1
+      ORDER BY invoice_date
+    `, [req.params.id]);
+
+    res.json({
+      customer: customer.rows[0],
+      transactions: invoices.rows,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Supplier Statement
+app.get('/api/reports/supplier-statement/:id', async (req, res) => {
+  try {
+    const supplier = await pool.query('SELECT * FROM suppliers WHERE id = $1', [req.params.id]);
+    if (supplier.rows.length === 0) {
+      res.status(404).json({ error: 'Supplier not found' });
+      return;
+    }
+
+    const bills = await pool.query(`
+      SELECT bill_number, bill_date, due_date, total, status, 'bill' as type
+      FROM bills WHERE supplier_id = $1
+      UNION ALL
+      SELECT payment_number, payment_date, null, amount, 'payment' as type, 'payment'
+      FROM payments WHERE supplier_id = $1
+      ORDER BY bill_date
+    `, [req.params.id]);
+
+    res.json({
+      supplier: supplier.rows[0],
+      transactions: bills.rows,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Payment Batch
+app.post('/api/payments/batch', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { supplier_id, bill_ids, payment_date } = req.body;
+    const userId = (req as any).userId || 1;
+
+    await client.query('BEGIN');
+
+    for (const billId of bill_ids) {
+      const bill = await client.query('SELECT * FROM bills WHERE id = $1', [billId]);
+      if (bill.rows.length === 0) continue;
+
+      const amount = parseFloat(bill.rows[0].total);
+      const paymentNumber = `PAY-${Date.now()}-${billId}`;
+
+      await client.query(
+        `INSERT INTO payments (payment_number, supplier_id, bill_id, amount, payment_date, payment_method)
+         VALUES ($1, $2, $3, $4, $5, 'bank_transfer')`,
+        [paymentNumber, supplier_id, billId, amount, payment_date]
+      );
+
+      // Journal entry
+      const entryNumber = `JV-${Date.now()}-${billId}`;
+      const journal = await client.query(
+        `INSERT INTO journal_entries (entry_number, description, entry_date, period, status, created_by)
+         VALUES ($1, $2, $3, 'JUL-2026', 'posted', $4) RETURNING id`,
+        [entryNumber, `Batch payment ${paymentNumber}`, payment_date, userId]
+      );
+
+      await client.query(
+        'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, 11, $2, $3, 0)',
+        [journal.rows[0].id, 'AP Payment', amount]
+      );
+      await client.query(
+        'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, 4, $2, 0, $3)',
+        [journal.rows[0].id, 'Bank Payment', amount]
+      );
+
+      await client.query('UPDATE suppliers SET current_balance = current_balance - $1 WHERE id = $2', [amount, supplier_id]);
+      await client.query("UPDATE bills SET status = 'paid' WHERE id = $1", [billId]);
+    }
+
+    await client.query('COMMIT');
+    res.json({ message: `Batch payment processed for ${bill_ids.length} bills` });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

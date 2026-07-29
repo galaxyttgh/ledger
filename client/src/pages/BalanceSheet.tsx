@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReportPDF, PDFRow, PDFTotal } from '../components/pdf/ReportPDF';
 import { Text } from '@react-pdf/renderer';
+import { exportToExcel } from '../utils/exportExcel';
 
 interface LineItem {
   code: string;
@@ -96,6 +97,20 @@ const BalanceSheet = () => {
     <button onClick={() => window.print()} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">
       🖨️ Print
     </button>
+    <button
+  onClick={() => data && exportToExcel(
+    [
+      ...data.assets.map((a: any) => ({ Category: 'Asset', Code: a.code, Account: a.name, Amount: a.amount })),
+      ...data.liabilities.map((l: any) => ({ Category: 'Liability', Code: l.code, Account: l.name, Amount: l.amount })),
+      ...data.equity.map((e: any) => ({ Category: 'Equity', Code: e.code, Account: e.name, Amount: e.amount })),
+    ],
+    'Balance_Sheet',
+    'Balance Sheet'
+  )}
+  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+>
+  📥 Excel
+</button>
     {data && (
       <PDFDownloadLink
         document={<BalanceSheetPDF data={data} />}

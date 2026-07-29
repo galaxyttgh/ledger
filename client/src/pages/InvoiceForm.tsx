@@ -19,10 +19,23 @@ const InvoiceForm = () => {
   const [dueDate, setDueDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+const [branches, setBranches] = useState<any[]>([]);
+const [branchId, setBranchId] = useState('');
+
+
+useEffect(() => {
+  fetchCustomers();
+  fetchBranches();
+}, []);
 
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  const fetchBranches = async () => {
+  const response = await api.get('/branches');
+  setBranches(response.data);
+};
 
   const fetchCustomers = async () => {
     try {
@@ -33,7 +46,30 @@ const InvoiceForm = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+//   const handleSubmit = async (e: React.FormEvent) => {
+//     e.preventDefault();
+//     setError('');
+//     setLoading(true);
+
+//     try {
+//       await api.post('/invoices', {
+//         customer_id: parseInt(customerId),
+//         invoice_date: invoiceDate,
+//         due_date: dueDate,
+//         description,
+//         amount: parseFloat(amount),
+//       });
+//       navigate('/invoices');
+//     } catch (err: any) {
+//       setError(err.response?.data?.error || 'Failed to create invoice');
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+  // Calculate VAT
+ 
+ const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -45,6 +81,7 @@ const InvoiceForm = () => {
         due_date: dueDate,
         description,
         amount: parseFloat(amount),
+        branch_id: branchId ? parseInt(branchId) : null,
       });
       navigate('/invoices');
     } catch (err: any) {
@@ -53,8 +90,7 @@ const InvoiceForm = () => {
       setLoading(false);
     }
   };
-
-  // Calculate VAT
+  
   const subtotal = parseFloat(amount) || 0;
   const vat = subtotal * 0.075;
   const total = subtotal + vat;
@@ -130,6 +166,13 @@ const InvoiceForm = () => {
                 required
               />
             </div>
+            <div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+  <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+    <option value="">Select branch...</option>
+    {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+  </select>
+</div>
           </div>
 
           <div className="mb-6">

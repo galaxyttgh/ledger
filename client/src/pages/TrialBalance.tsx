@@ -3,6 +3,7 @@ import api from '../api/axios';
 import Layout from '../components/Layout';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReportPDF, PDFRow, PDFTotal } from '../components/pdf/ReportPDF';
+import { exportToExcel } from '../utils/exportExcel';
 
 interface AccountBalance {
   id: number;
@@ -67,6 +68,22 @@ return (
         <button onClick={() => window.print()} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">
           🖨️ Print
         </button>
+        <button
+  onClick={() => data && exportToExcel(
+    data.accounts.map((a: any) => ({
+      Code: a.code,
+      Account: a.name,
+      Type: a.type,
+      Debit: a.debit_balance,
+      Credit: a.credit_balance,
+    })),
+    'Trial_Balance',
+    'Trial Balance'
+  )}
+  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+>
+  📥 Excel
+</button>
         {data && (
           <PDFDownloadLink
             document={<TrialBalancePDF data={data} />}

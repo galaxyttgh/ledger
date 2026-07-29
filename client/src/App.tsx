@@ -92,6 +92,12 @@ import CreditNoteForm from './pages/CreditNoteForm';
 import DebitNoteForm from './pages/DebitNoteForm';
 import PeriodClose from './pages/PeriodClose';
 import RecurringJournalForm from './pages/RecurringJournalForm';
+import VATSchedule from './pages/VATSchedule';
+import WHTCertificates from './pages/WHTCertificates';
+import TaxRates from './pages/TaxRates';
+import CustomerStatement from './pages/CustomerStatement';
+import SupplierStatement from './pages/SupplierStatement';
+import PaymentBatch from './pages/PaymentBatch';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -176,6 +182,12 @@ const AppRoutes = () => {
 <Route path="/bills/debit-note" element={<ProtectedRoute><DebitNoteForm /></ProtectedRoute>} />
 <Route path="/period-close" element={<ProtectedRoute><PeriodClose /></ProtectedRoute>} />
 <Route path="/general-ledger/recurring" element={<ProtectedRoute><RecurringJournalForm /></ProtectedRoute>} />
+<Route path="/vat-schedule" element={<ProtectedRoute><VATSchedule /></ProtectedRoute>} />
+<Route path="/wht-certificates" element={<ProtectedRoute><WHTCertificates /></ProtectedRoute>} />
+<Route path="/tax-rates" element={<ProtectedRoute><TaxRates /></ProtectedRoute>} />
+<Route path="/customer-statement" element={<ProtectedRoute><CustomerStatement /></ProtectedRoute>} />
+<Route path="/supplier-statement" element={<ProtectedRoute><SupplierStatement /></ProtectedRoute>} />
+<Route path="/payments/batch" element={<ProtectedRoute><PaymentBatch /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
