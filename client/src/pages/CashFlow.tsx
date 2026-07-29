@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ReportPDF, PDFRow, PDFTotal } from '../components/pdf/ReportPDF';
 import { Text } from '@react-pdf/renderer';
+import { exportToExcel } from '../utils/exportExcel';
 
 interface CashFlowData {
   operatingActivities: { name: string; amount: number }[];
@@ -52,6 +53,21 @@ const CashFlow = () => {
           <button onClick={() => window.print()} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium">
             🖨️ Print
           </button>
+          <button
+  onClick={() => data && exportToExcel(
+    [
+      ...data.operatingActivities.map((a: any) => ({ Activity: 'Operating', Item: a.name, Amount: a.amount })),
+      { Activity: '', Item: 'Net Operating Cash Flow', Amount: data.netOperating },
+      { Activity: '', Item: 'Opening Balance', Amount: data.openingBalance },
+      { Activity: '', Item: 'Closing Balance', Amount: data.closingBalance },
+    ],
+    'Cash_Flow',
+    'Cash Flow'
+  )}
+  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+>
+  📥 Excel
+</button>
           {data && (
             <PDFDownloadLink
               document={<CashFlowPDF data={data} />}

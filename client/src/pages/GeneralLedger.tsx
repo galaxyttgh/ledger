@@ -242,7 +242,17 @@ const GeneralLedger = () => {
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [branches, setBranches] = useState<any[]>([]);
+const [branchFilter, setBranchFilter] = useState('');
+
   const perPage = 10;
+
+
+  useEffect(() => {
+  fetchEntries();
+  fetchBranches();
+}, []);
+
 
   useEffect(() => { fetchEntries(); }, []);
 
@@ -255,6 +265,10 @@ const GeneralLedger = () => {
     setCurrentPage(1);
   }, [search, entries]);
 
+  const fetchBranches = async () => {
+  const response = await api.get('/branches');
+  setBranches(response.data);
+};
   const fetchEntries = async () => {
     try {
       const response = await api.get('/journals');
@@ -320,7 +334,15 @@ const GeneralLedger = () => {
           onChange={(e) => setSearch(e.target.value)}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
         />
+        
       </div>
+
+<select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} className="px-4 py-3 border border-gray-300 rounded-lg shadow-sm">
+  <option value="">All Branches</option>
+  {branches.map((b: any) => (
+    <option key={b.id} value={b.id}>{b.name}</option>
+  ))}
+</select>
 
       {loading ? (
         <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">Loading...</div>

@@ -31,7 +31,22 @@ const JournalForm = () => {
   ]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+const [branches, setBranches] = useState<any[]>([]);
+const [branchId, setBranchId] = useState('');
 
+useEffect(() => {
+  fetchAccounts();
+  fetchBranches();
+}, []);
+
+const fetchBranches = async () => {
+  try {
+    const response = await api.get('/branches');
+    setBranches(response.data);
+  } catch (error) {
+    console.error('Failed to fetch branches:', error);
+  }
+};
   useEffect(() => {
     fetchAccounts();
   }, []);
@@ -96,12 +111,13 @@ const JournalForm = () => {
     setLoading(true);
 
     try {
-      await api.post('/journals', {
-        description,
-        entry_date: entryDate,
-        period,
-        lines: lines.filter(l => l.account_id > 0 && (l.debit > 0 || l.credit > 0)),
-      });
+     await api.post('/journals', {
+  description,
+  entry_date: entryDate,
+  period,
+  branch_id: branchId ? parseInt(branchId) : null,
+  lines: lines.filter(l => l.account_id > 0 && (l.debit > 0 || l.credit > 0)),
+});
       navigate('/general-ledger');
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Failed to create journal entry');
@@ -155,6 +171,15 @@ const JournalForm = () => {
                   required
                 />
               </div>
+              <div>
+  <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+  <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+    <option value="">All Branches</option>
+    {branches.map((b: any) => (
+      <option key={b.id} value={b.id}>{b.name}</option>
+    ))}
+  </select>
+</div>
             </div>
 
             <div className="mb-4">
