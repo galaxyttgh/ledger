@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import Layout from '../components/Layout';
+import { getCurrentPeriod } from '../utils/period';
 
 interface Account {
   id: number;
@@ -14,7 +15,7 @@ const BudgetForm = () => {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [name, setName] = useState('');
-  const [period, setPeriod] = useState('JUL-2026');
+const [period, setPeriod] = useState(getCurrentPeriod());
   const [lines, setLines] = useState<{ account_id: number; amount: string }[]>([
     { account_id: 0, amount: '' },
   ]);

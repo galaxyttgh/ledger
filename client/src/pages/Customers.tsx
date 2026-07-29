@@ -21,6 +21,16 @@ const Customers = () => {
     fetchCustomers();
   }, []);
 
+  const handleDelete = async (id: number) => {
+  if (!confirm('Delete this customer?')) return;
+  try {
+    await api.delete(`/customers/${id}`);
+    fetchCustomers();
+  } catch (err: any) {
+    alert(err.response?.data?.error || 'Delete failed');
+  }
+};
+
   const fetchCustomers = async () => {
     try {
       const response = await api.get('/customers');
@@ -63,6 +73,7 @@ const Customers = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -75,6 +86,9 @@ const Customers = () => {
                   <td className="px-6 py-4 text-sm text-right font-medium">
                     ₦{Number(customer.current_balance).toLocaleString()}
                   </td>
+                  <td className="px-6 py-4">
+  <button onClick={() => handleDelete(customer.id)} className="text-red-600 hover:text-red-800 text-sm">🗑️</button>
+</td>
                 </tr>
               ))}
             </tbody>

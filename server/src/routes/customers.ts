@@ -69,4 +69,23 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Delete customer
+router.delete('/:id', async (req, res) => {
+  try {
+    // Check if customer has transactions
+    const hasInvoices = await pool.query('SELECT COUNT(*) FROM invoices WHERE customer_id = $1', [req.params.id]);
+    const hasReceipts = await pool.query('SELECT COUNT(*) FROM receipts WHERE customer_id = $1', [req.params.id]);
+    
+    if (parseInt(hasInvoices.rows[0].count) > 0 || parseInt(hasReceipts.rows[0].count) > 0) {
+      res.status(400).json({ error: 'Cannot delete customer with transactions. Clear invoices and receipts first.' });
+      return;
+    }
+
+    await pool.query('DELETE FROM customers WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Customer deleted' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 export default router;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import Layout from '../components/Layout';
+import { getCurrentPeriod } from '../utils/period';
 
 interface ClosedPeriod {
   id: number;
@@ -11,7 +12,7 @@ interface ClosedPeriod {
 
 const PeriodClose = () => {
   const [periods, setPeriods] = useState<ClosedPeriod[]>([]);
-  const [period, setPeriod] = useState('JUL-2026');
+const [period, setPeriod] = useState(getCurrentPeriod());
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 

@@ -54,6 +54,16 @@ const Assets = () => {
   const totalCost = assets.reduce((sum, a) => sum + Number(a.purchase_cost), 0);
   const totalValue = assets.reduce((sum, a) => sum + Number(a.current_value), 0);
 
+  const handleDelete = async (id: number) => {
+  if (!confirm('Delete this asset?')) return;
+  try {
+    await api.delete(`/assets/${id}`);
+    fetchAssets();
+  } catch (err: any) {
+    alert(err.response?.data?.error || 'Delete failed');
+  }
+};
+
   return (
     <Layout>
    <div className="mb-6 flex justify-between items-center">
@@ -112,6 +122,7 @@ const Assets = () => {
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Current Value</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -131,6 +142,9 @@ const Assets = () => {
                     </span>
                   </td>
                   <td className="px-6 py-3 text-gray-600">{asset.location || asset.branch_name || '-'}</td>
+                  <td className="px-6 py-3">
+  <button onClick={() => handleDelete(asset.id)} className="text-red-600 hover:text-red-800 text-sm">🗑️</button>
+</td>
                 </tr>
               ))}
             </tbody>

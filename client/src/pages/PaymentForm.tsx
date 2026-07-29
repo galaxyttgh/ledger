@@ -57,6 +57,20 @@ const PaymentForm = () => {
 //     }
 //   };
 
+
+const handleSupplierChange = (id: string) => {
+  setSupplierId(id);
+  setBillId('');
+  setAmount('');
+};
+
+const handleBillChange = (id: string) => {
+  setBillId(id);
+  const bill = bills.find((b: any) => b.id === parseInt(id));
+  if (bill) {
+    setAmount(bill.total.toString());
+  }
+};
 const fetchBills = async (suppId: number) => {
   try {
     const response = await api.get('/bills');
@@ -107,7 +121,7 @@ const fetchBills = async (suppId: number) => {
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Supplier *</label>
-            <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            <select value={supplierId} onChange={(e) => handleSupplierChange(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
               <option value="">Select supplier...</option>
               {suppliers.map((s) => (
                 <option key={s.id} value={s.id}>{s.name} {s.current_balance > 0 ? `(owed ₦${s.current_balance.toLocaleString()})` : ''}</option>
@@ -117,7 +131,7 @@ const fetchBills = async (suppId: number) => {
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Bill (optional)</label>
-            <select value={billId} onChange={(e) => setBillId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select value={billId} onChange={(e) => handleBillChange(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">No specific bill</option>
               {bills.map((b) => (
                 <option key={b.id} value={b.id}>{b.bill_number} — ₦{Number(b.total).toLocaleString()}</option>

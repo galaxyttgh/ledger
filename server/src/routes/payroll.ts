@@ -170,4 +170,26 @@ router.post('/employees', async (req, res) => {
   }
 });
 
+router.delete('/employees/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM employees WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Employee deleted' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update employee
+router.put('/employees/:id', async (req, res) => {
+  try {
+    const { first_name, last_name, email, phone, basic_salary, housing_allowance, transport_allowance, other_allowance } = req.body;
+    const result = await pool.query(
+      `UPDATE employees SET first_name=$1, last_name=$2, email=$3, phone=$4, basic_salary=$5, housing_allowance=$6, transport_allowance=$7, other_allowance=$8 WHERE id=$9 RETURNING *`,
+      [first_name, last_name, email, phone, basic_salary, housing_allowance, transport_allowance, other_allowance, req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 export default router;
