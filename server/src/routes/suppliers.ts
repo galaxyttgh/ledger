@@ -54,4 +54,19 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.delete('/:id', async (req, res) => {
+  try {
+    const hasBills = await pool.query('SELECT COUNT(*) FROM bills WHERE supplier_id = $1', [req.params.id]);
+    const hasPayments = await pool.query('SELECT COUNT(*) FROM payments WHERE supplier_id = $1', [req.params.id]);
+    if (parseInt(hasBills.rows[0].count) > 0 || parseInt(hasPayments.rows[0].count) > 0) {
+      res.status(400).json({ error: 'Cannot delete supplier with transactions.' });
+      return;
+    }
+    await pool.query('DELETE FROM suppliers WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Supplier deleted' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 export default router;

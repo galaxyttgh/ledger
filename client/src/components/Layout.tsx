@@ -169,6 +169,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         { path: '/general-ledger', label: 'General Ledger' },
         { path: '/accounts', label: 'Chart of Accounts' },
         { path: '/period-close', label: 'Period Close' },
+        
       ],
     },
     {
@@ -242,7 +243,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
-      <aside className="w-64 bg-blue-900 text-white flex flex-col">
+     <aside className="w-64 bg-blue-900 text-white flex flex-col h-screen sticky top-0">
         <div className="p-6 border-b border-blue-800">
           <h1 className="text-xl font-bold">PrimeLedger</h1>
           <p className="text-blue-300 text-sm mt-1">Accounting Platform</p>
@@ -325,7 +326,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         </div>
       </aside>
 
-      <main className="flex-1 p-8 overflow-auto">
+      <main className="flex-1 p-8 overflow-auto h-screen">
         {children}
       </main>
     </div>

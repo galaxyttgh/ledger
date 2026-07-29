@@ -131,4 +131,17 @@ router.get('/classes', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM assets WHERE id = $1 RETURNING *', [req.params.id]);
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Asset not found' });
+      return;
+    }
+    res.json({ message: 'Asset deleted' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 export default router;

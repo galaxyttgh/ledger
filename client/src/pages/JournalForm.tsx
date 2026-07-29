@@ -4,6 +4,7 @@ import api from '../api/axios';
 import Layout from '../components/Layout';
 import toast from 'react-hot-toast';
 import Breadcrumb from '../components/Breadcrumb';
+import { getCurrentPeriod } from '../utils/period';
 
 interface Account {
   id: number;
@@ -24,7 +25,8 @@ const JournalForm = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [description, setDescription] = useState('');
   const [entryDate, setEntryDate] = useState(new Date().toISOString().split('T')[0]);
-  const [period, setPeriod] = useState('JUL-2026');
+ 
+  const [period, setPeriod] = useState(getCurrentPeriod());
   const [lines, setLines] = useState<JournalLine[]>([
     { account_id: 0, description: '', debit: 0, credit: 0 },
     { account_id: 0, description: '', debit: 0, credit: 0 },

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import Layout from '../components/Layout';
 import { useNavigate } from 'react-router-dom';
+import { getCurrentPeriod } from '../utils/period';
 
 interface PayrollRun {
   id: number;
@@ -31,10 +32,26 @@ const Payroll = () => {
   const [runs, setRuns] = useState<PayrollRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
-  const [period, setPeriod] = useState('JUL-2026');
+const [period, setPeriod] = useState(getCurrentPeriod());
   const [selectedRun, setSelectedRun] = useState<{ run: PayrollRun; payslips: Payslip[] } | null>(null);
   const [message, setMessage] = useState('');
 
+
+  const [employees, setEmployees] = useState<any[]>([]);
+const [editingEmployee, setEditingEmployee] = useState<any>(null);
+
+useEffect(() => { fetchEmployees(); }, []);
+
+const fetchEmployees = async () => {
+  const response = await api.get('/payroll/employees');
+  setEmployees(response.data);
+};
+
+const handleDeleteEmployee = async (id: number) => {
+  if (!confirm('Delete this employee?')) return;
+  await api.delete(`/payroll/employees/${id}`);
+  fetchEmployees();
+};
   useEffect(() => { fetchRuns(); }, []);
 
   const fetchRuns = async () => {
@@ -92,6 +109,38 @@ const Payroll = () => {
       {running ? 'Running...' : '▶ Run Payroll'}
     </button>
   </div>
+</div>
+
+{/* Employee List */}
+<div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+  <div className="px-6 py-4 bg-gray-50 border-b flex justify-between items-center">
+    <h3 className="font-semibold text-gray-700">Employees</h3>
+  </div>
+  <table className="w-full text-sm">
+    <thead className="bg-gray-50">
+      <tr>
+        <th className="px-4 py-2 text-left">Name</th>
+        <th className="px-4 py-2 text-left">Email</th>
+        <th className="px-4 py-2 text-right">Basic Salary</th>
+        <th className="px-4 py-2 text-right">Allowances</th>
+        <th className="px-4 py-2 text-center">Action</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y">
+      {employees.map((emp: any) => (
+        <tr key={emp.id}>
+          <td className="px-4 py-2 font-medium">{emp.first_name} {emp.last_name}</td>
+          <td className="px-4 py-2 text-gray-600">{emp.email}</td>
+          <td className="px-4 py-2 text-right">₦{Number(emp.basic_salary).toLocaleString()}</td>
+          <td className="px-4 py-2 text-right">₦{(Number(emp.housing_allowance) + Number(emp.transport_allowance) + Number(emp.other_allowance)).toLocaleString()}</td>
+          <td className="px-4 py-2 text-center">
+            <button onClick={() => navigate(`/payroll/employees/${emp.id}/edit`)} className="text-blue-600 hover:text-blue-800 text-sm mr-2">✏️</button>
+            <button onClick={() => handleDeleteEmployee(emp.id)} className="text-red-600 hover:text-red-800 text-sm">🗑️</button>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
 </div>
 
       {message && <p className="mb-4 text-sm font-medium">{message}</p>}

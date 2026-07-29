@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import Layout from '../components/Layout';
+import { getCurrentPeriod } from '../utils/period';
 
 interface Customer {
   id: number;

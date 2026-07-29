@@ -667,6 +667,62 @@ app.post('/api/payments/batch', async (req, res) => {
   }
 });
 
+// Dashboard financial summary
+app.get('/api/dashboard/financial-summary', async (req, res) => {
+  try {
+    const revenue = await pool.query(`
+      SELECT COALESCE(SUM(jl.credit) - SUM(jl.debit), 0) as total
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE a.type = 'revenue' AND je.status = 'posted'
+    `);
+
+    const expenses = await pool.query(`
+      SELECT COALESCE(SUM(jl.debit) - SUM(jl.credit), 0) as total
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE a.type = 'expense' AND je.status = 'posted'
+    `);
+
+    const cashBalance = await pool.query(`
+      SELECT COALESCE(SUM(jl.debit) - SUM(jl.credit), 0) as total
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE a.code LIKE '1102%' AND je.status = 'posted'
+    `);
+
+    const payables = await pool.query(`
+      SELECT COALESCE(SUM(jl.credit) - SUM(jl.debit), 0) as total
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE a.code LIKE '2101%' AND je.status = 'posted'
+    `);
+
+    const receivables = await pool.query(`
+      SELECT COALESCE(SUM(jl.debit) - SUM(jl.credit), 0) as total
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE a.code LIKE '1103%' AND je.status = 'posted'
+    `);
+
+    res.json({
+      revenue: Math.abs(parseFloat(revenue.rows[0].total) || 0),
+      expenses: Math.abs(parseFloat(expenses.rows[0].total) || 0),
+      cashBalance: parseFloat(cashBalance.rows[0].total) || 0,
+      payables: Math.abs(parseFloat(payables.rows[0].total) || 0),
+      receivables: Math.abs(parseFloat(receivables.rows[0].total) || 0),
+      netProfit: Math.abs(parseFloat(revenue.rows[0].total) || 0) - Math.abs(parseFloat(expenses.rows[0].total) || 0),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
