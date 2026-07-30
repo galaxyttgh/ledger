@@ -191,4 +191,68 @@ const createTables = async () => {
   }
 };
 
+// Add this function to schema.ts and call it after createTables
+
+export const addSubledgerColumns = async () => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Add source tracking to journal_lines
+    await client.query(`
+      ALTER TABLE journal_lines 
+      ADD COLUMN IF NOT EXISTS source_type VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS source_id INTEGER,
+      ADD COLUMN IF NOT EXISTS source_reference VARCHAR(100)
+    `);
+
+    // Add indexes
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_journal_lines_source 
+      ON journal_lines(source_type, source_id)
+    `);
+
+    // Add journal_entry_id to all subledger tables
+    const tables = ['invoices', 'bills', 'receipts', 'payments', 'payroll_runs'];
+    for (const table of tables) {
+      await client.query(`
+        ALTER TABLE ${table} 
+        ADD COLUMN IF NOT EXISTS journal_entry_id INTEGER REFERENCES journal_entries(id)
+      `);
+    }
+
+    // Add tax_code to invoices and bills
+    await client.query(`
+      ALTER TABLE invoices 
+      ADD COLUMN IF NOT EXISTS tax_code VARCHAR(50)
+    `);
+    await client.query(`
+      ALTER TABLE bills 
+      ADD COLUMN IF NOT EXISTS tax_code VARCHAR(50)
+    `);
+
+    // Create subledger_references table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS subledger_references (
+        id SERIAL PRIMARY KEY,
+        source_type VARCHAR(50) NOT NULL,
+        source_id INTEGER NOT NULL,
+        journal_entry_id INTEGER REFERENCES journal_entries(id),
+        transaction_date DATE NOT NULL,
+        amount DECIMAL(15,2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await client.query('COMMIT');
+    console.log('Subledger columns added successfully');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Migration error:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 export default createTables;

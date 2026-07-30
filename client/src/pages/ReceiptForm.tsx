@@ -1,3 +1,4 @@
+
 // import { useState, useEffect } from 'react';
 // import { useNavigate } from 'react-router-dom';
 // import api from '../api/axios';
@@ -48,37 +49,26 @@
 //     }
 //   };
 
-// //   const fetchInvoices = async (custId: number) => {
-// //     try {
-// //       const response = await api.get('/invoices');
-// //       setInvoices(response.data.filter((inv: Invoice) => inv.customer_id === custId));
-// //     } catch (error) {
-// //       console.error('Failed to fetch invoices:', error);
-// //     }
-// //   };
+//   const fetchInvoices = async (custId: number) => {
+//     try {
+//       const response = await api.get('/invoices');
+//       setInvoices(response.data.filter((inv: any) => 
+//         inv.customer_id === custId && inv.status !== 'paid'
+//       ));
+//     } catch (error) {
+//       console.error('Failed to fetch invoices:', error);
+//     }
+//   };
 
-// const fetchInvoices = async (custId: number) => {
-//   try {
-//     const response = await api.get('/invoices');
-//     setInvoices(response.data.filter((inv: any) => 
-//       inv.customer_id === custId && inv.status !== 'paid'
-//     ));
-//   } catch (error) {
-//     console.error('Failed to fetch invoices:', error);
-//   }
-// };
 //   const handleCustomerChange = (id: string) => {
 //     setCustomerId(id);
 //     setInvoiceId('');
-//     const customer = customers.find(c => c.id === parseInt(id));
-//     if (customer && customer.current_balance > 0) {
-//       setAmount(customer.current_balance.toString());
-//     }
+//     setAmount('');
 //   };
 
 //   const handleInvoiceChange = (id: string) => {
 //     setInvoiceId(id);
-//     const invoice = invoices.find(i => i.id === parseInt(id));
+//     const invoice = invoices.find((i: any) => i.id === parseInt(id));
 //     if (invoice) {
 //       setAmount(invoice.total.toString());
 //     }
@@ -172,10 +162,12 @@
 
 // export default ReceiptForm;
 
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import Layout from '../components/Layout';
+import toast from 'react-hot-toast';
 
 interface Customer {
   id: number;
@@ -201,7 +193,6 @@ const ReceiptForm = () => {
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchCustomers();
@@ -249,7 +240,6 @@ const ReceiptForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
@@ -260,9 +250,10 @@ const ReceiptForm = () => {
         payment_date: paymentDate,
         payment_method: paymentMethod,
       });
+      toast.success('Receipt recorded successfully!');
       navigate('/receipts');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to record receipt');
+      toast.error(err.response?.data?.error || 'Failed to record receipt');
     } finally {
       setLoading(false);
     }
@@ -280,8 +271,6 @@ const ReceiptForm = () => {
             ← Back
           </button>
         </div>
-
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">{error}</div>}
 
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
           <div className="mb-4">

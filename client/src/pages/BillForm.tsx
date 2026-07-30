@@ -1,7 +1,10 @@
+
+
 // import { useState, useEffect } from 'react';
 // import { useNavigate } from 'react-router-dom';
 // import api from '../api/axios';
 // import Layout from '../components/Layout';
+
 
 // interface Supplier {
 //   id: number;
@@ -19,10 +22,18 @@
 //   const [dueDate, setDueDate] = useState('');
 //   const [loading, setLoading] = useState(false);
 //   const [error, setError] = useState('');
+//   const [branches, setBranches] = useState<any[]>([]);
+//   const [branchId, setBranchId] = useState('');
 
 //   useEffect(() => {
 //     fetchSuppliers();
+//     fetchBranches();
 //   }, []);
+
+//   const fetchBranches = async () => {
+//     const response = await api.get('/branches');
+//     setBranches(response.data);
+//   };
 
 //   const fetchSuppliers = async () => {
 //     try {
@@ -45,6 +56,7 @@
 //         due_date: dueDate,
 //         description,
 //         amount: parseFloat(amount),
+//         branch_id: branchId ? parseInt(branchId) : null,
 //       });
 //       navigate('/bills');
 //     } catch (err: any) {
@@ -87,19 +99,26 @@
 //             <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
 //             <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
 //           </div>
-//           <div className="grid grid-cols-2 gap-4 mb-4">
+//           <div className="grid grid-cols-3 gap-4 mb-4">
 //             <div>
 //               <label className="block text-sm font-medium text-gray-700 mb-1">Bill Date *</label>
-//               <input type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+//               <input type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" required />
 //             </div>
 //             <div>
 //               <label className="block text-sm font-medium text-gray-700 mb-1">Due Date *</label>
-//               <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+//               <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" required />
+//             </div>
+//             <div>
+//               <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+//               <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+//                 <option value="">Select...</option>
+//                 {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+//               </select>
 //             </div>
 //           </div>
 //           <div className="mb-6">
 //             <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₦) *</label>
-//             <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" step="0.01" min="0" required />
+//             <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" step="0.01" min="0" required />
 //             {amount && (
 //               <div className="mt-2 text-sm text-gray-500 space-y-1">
 //                 <p>Subtotal: ₦{subtotal.toLocaleString()}</p>
@@ -119,11 +138,11 @@
 
 // export default BillForm;
 
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import Layout from '../components/Layout';
+import toast from 'react-hot-toast';
 
 interface Supplier {
   id: number;
@@ -140,7 +159,6 @@ const BillForm = () => {
   const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [branches, setBranches] = useState<any[]>([]);
   const [branchId, setBranchId] = useState('');
 
@@ -150,8 +168,12 @@ const BillForm = () => {
   }, []);
 
   const fetchBranches = async () => {
-    const response = await api.get('/branches');
-    setBranches(response.data);
+    try {
+      const response = await api.get('/branches');
+      setBranches(response.data);
+    } catch (error) {
+      console.error('Failed to fetch branches:', error);
+    }
   };
 
   const fetchSuppliers = async () => {
@@ -165,7 +187,6 @@ const BillForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
@@ -177,9 +198,10 @@ const BillForm = () => {
         amount: parseFloat(amount),
         branch_id: branchId ? parseInt(branchId) : null,
       });
+      toast.success('Bill created successfully!');
       navigate('/bills');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to create bill');
+      toast.error(err.response?.data?.error || 'Failed to create bill');
     } finally {
       setLoading(false);
     }
@@ -201,8 +223,6 @@ const BillForm = () => {
             ← Back
           </button>
         </div>
-
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">{error}</div>}
 
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
           <div className="mb-4">

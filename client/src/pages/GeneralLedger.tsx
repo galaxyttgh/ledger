@@ -212,6 +212,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import Layout from '../components/Layout';
 import DocumentUpload from '../components/DocumentUpload';
+import { toast } from 'react-hot-toast/headless';
 
 interface JournalEntry {
   id: number;
@@ -265,6 +266,19 @@ const [branchFilter, setBranchFilter] = useState('');
     setCurrentPage(1);
   }, [search, entries]);
 
+
+  const handleReverse = async (id: number) => {
+  const date = prompt('Reversal date (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+  const reason = prompt('Reason:');
+  if (!date) return;
+  try {
+    await api.post(`/journals/${id}/reverse`, { reversal_date: date, reason });
+    toast.success('Journal reversed');
+    fetchEntries();
+  } catch (err: any) {
+    toast.error(err.response?.data?.error || 'Reversal failed');
+  }
+};
   const fetchBranches = async () => {
   const response = await api.get('/branches');
   setBranches(response.data);
@@ -385,6 +399,7 @@ const [branchFilter, setBranchFilter] = useState('');
                       >
                         View
                       </button>
+                      <button onClick={() => handleReverse(entry.id)} className="text-orange-600 hover:text-orange-800 text-sm font-medium ml-2">↩️ Reverse</button>
                     </td>
                   </tr>
                 ))}

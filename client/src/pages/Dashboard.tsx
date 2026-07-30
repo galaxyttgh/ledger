@@ -268,7 +268,7 @@ const fetchAlerts = async () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           {[
             { label: 'Total Accounts', value: '31' },
-            { label: 'Role', value: user?.role?.replace('_', ' ') },
+            { label: 'Role', value: user?.role || 'User' },
             { label: 'Modules Active', value: '10 of 19' },
             { label: 'Audit Trail', value: 'Active' },
           ].map((item) => (

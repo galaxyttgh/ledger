@@ -99,6 +99,7 @@ import CustomerStatement from './pages/CustomerStatement';
 import SupplierStatement from './pages/SupplierStatement';
 import PaymentBatch from './pages/PaymentBatch';
 import ChartOfAccounts from './pages/ChartOfAccounts';
+import EmployeeEdit from './pages/EmployeeEdit';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -190,6 +191,7 @@ const AppRoutes = () => {
 <Route path="/supplier-statement" element={<ProtectedRoute><SupplierStatement /></ProtectedRoute>} />
 <Route path="/payments/batch" element={<ProtectedRoute><PaymentBatch /></ProtectedRoute>} />
 <Route path="/accounts" element={<ProtectedRoute><ChartOfAccounts /></ProtectedRoute>} />
+<Route path="/payroll/employees/:id/edit" element={<ProtectedRoute><EmployeeEdit /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
