@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../db/pool.js';
 import rateLimit from 'express-rate-limit';
-
+import crypto from 'crypto';
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -117,7 +117,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
-import crypto from 'crypto';
+
 
 // Forgot Password - Send reset link
 router.post('/forgot-password', async (req, res) => {

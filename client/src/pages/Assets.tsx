@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import Layout from '../components/Layout';
 import { useNavigate } from 'react-router-dom';
-
+import toast from 'react-hot-toast';
 
 interface Asset {
   id: number;
@@ -26,6 +26,24 @@ const Assets = () => {
   const [message, setMessage] = useState('');
 
   useEffect(() => { fetchAssets(); }, []);
+
+
+  const handleDispose = async (id: number) => {
+  const value = prompt('Disposal value (₦):');
+  const reason = prompt('Reason for disposal:');
+  if (!value) return;
+  try {
+    await api.post(`/assets/${id}/dispose`, {
+      disposal_date: new Date().toISOString().split('T')[0],
+      disposal_value: parseFloat(value),
+      reason: reason || 'Disposed',
+    });
+    toast.success('Asset disposed');
+    fetchAssets();
+  } catch (err: any) {
+    toast.error('Disposal failed');
+  }
+};
 
   const fetchAssets = async () => {
     try {
@@ -143,6 +161,7 @@ const Assets = () => {
                   </td>
                   <td className="px-6 py-3 text-gray-600">{asset.location || asset.branch_name || '-'}</td>
                   <td className="px-6 py-3">
+                     <button onClick={() => handleDispose(asset.id)} className="text-orange-600 hover:text-orange-800 text-sm mr-2">🏷️</button>
   <button onClick={() => handleDelete(asset.id)} className="text-red-600 hover:text-red-800 text-sm">🗑️</button>
 </td>
                 </tr>
