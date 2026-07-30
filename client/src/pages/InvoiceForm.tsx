@@ -265,14 +265,21 @@ const InvoiceForm = () => {
     setLoading(true);
 
     try {
-      await api.post('/invoices', {
-        customer_id: parseInt(customerId),
-        invoice_date: invoiceDate,
-        due_date: dueDate,
-        description,
-        amount: parseFloat(amount),
-        branch_id: branchId ? parseInt(branchId) : null,
-      });
+await api.post('/invoices', {
+  customer_id: parseInt(customerId),
+  invoice_date: invoiceDate,
+  due_date: dueDate,
+  description,
+  subtotal: parseFloat(amount),
+  branch_id: branchId ? parseInt(branchId) : null,
+});
+    //     customer_id: parseInt(customerId),
+    //     invoice_date: invoiceDate,
+    //     due_date: dueDate,
+    //     description,
+    //     amount: parseFloat(amount),
+    //     branch_id: branchId ? parseInt(branchId) : null,
+    //   });
       toast.success('Invoice created successfully!');
       navigate('/invoices');
     } catch (err: any) {

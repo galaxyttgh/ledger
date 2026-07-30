@@ -437,7 +437,7 @@ router.post('/:id/dispose', periodGuard, async (req, res) => {
         entry_number, description, entry_date, period, status, created_by
       ) VALUES ($1, $2, $3, $4, 'posted', $5) RETURNING id`,
       [entryNumber, `Disposal: ${asset.rows[0].name}`, disposal_date, 
-       disposal_date.substring(0, 7), userId]
+ String(disposal_date).substring(0, 7), userId]
     );
 
     const journalId = journal.rows[0].id;
@@ -470,16 +470,16 @@ router.post('/:id/dispose', periodGuard, async (req, res) => {
         ) VALUES ($1, 29, $2, 0, $3, 'asset', $4, $5)`,
         [journalId, 'Gain on Disposal', gainLoss, req.params.id, entryNumber]
       );
-    } else if (gainLoss < 0) {
-      // Dr Loss on Disposal
-      await client.query(
-        `INSERT INTO journal_lines (
-          journal_entry_id, account_id, description, debit, credit,
-          source_type, source_id, source_reference
-        ) VALUES ($1, 30, $2, ${Math.abs(gainLoss)}, 0, 'asset', $4, $5)`,
-        [journalId, 'Loss on Disposal', Math.abs(gainLoss), req.params.id, entryNumber]
-      );
-    }
+  } else if (gainLoss < 0) {
+  // Dr Loss on Disposal
+  await client.query(
+    `INSERT INTO journal_lines (
+      journal_entry_id, account_id, description, debit, credit,
+      source_type, source_id, source_reference
+    ) VALUES ($1, 30, $2, $3, 0, 'asset', $4, $5)`,
+    [journalId, 'Loss on Disposal', Math.abs(gainLoss), req.params.id, entryNumber]
+  );
+}
 
     await client.query('COMMIT');
 

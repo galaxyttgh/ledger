@@ -342,36 +342,85 @@ app.get('/api/dashboard/alerts', async (req, res) => {
 });
 
 // Cash Flow Statement
+// app.get('/api/reports/cash-flow', async (req, res) => {
+//   try {
+//     // Operating: Receipts from customers
+//     const receipts = await pool.query(`
+//       SELECT COALESCE(SUM(amount), 0) as total FROM receipts
+//     `);
+
+//     // Operating: Payments to suppliers
+//     const payments = await pool.query(`
+//       SELECT COALESCE(SUM(amount), 0) as total FROM payments
+//     `);
+
+//     // Get all bank-related journal lines for cash movements
+//     const bankMoves = await pool.query(`
+//       SELECT 
+//         CASE WHEN jl.debit > 0 THEN 'inflow' ELSE 'outflow' END as direction,
+//         CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END as amount,
+//         je.description
+//       FROM journal_lines jl
+//       JOIN journal_entries je ON jl.journal_entry_id = je.id
+//       JOIN accounts a ON jl.account_id = a.id
+//       WHERE a.code LIKE '1102%' AND je.status = 'posted'
+//     `);
+
+//     const operatingInflow = parseFloat(receipts.rows[0].total) || 0;
+//     const operatingOutflow = parseFloat(payments.rows[0].total) || 0;
+//     const netOperating = operatingInflow - operatingOutflow;
+
+//     // Opening balance (from initial journal)
+//     const openingBalance = 500000;
+
+//     res.json({
+//       operatingActivities: [
+//         { name: 'Receipts from Customers', amount: operatingInflow },
+//         { name: 'Payments to Suppliers', amount: -operatingOutflow },
+//       ],
+//       netOperating,
+//       openingBalance,
+//       closingBalance: openingBalance + netOperating,
+//     });
+//   } catch (error) {
+//     console.error('Cash flow error:', error);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
 app.get('/api/reports/cash-flow', async (req, res) => {
   try {
-    // Operating: Receipts from customers
     const receipts = await pool.query(`
       SELECT COALESCE(SUM(amount), 0) as total FROM receipts
     `);
 
-    // Operating: Payments to suppliers
     const payments = await pool.query(`
       SELECT COALESCE(SUM(amount), 0) as total FROM payments
-    `);
-
-    // Get all bank-related journal lines for cash movements
-    const bankMoves = await pool.query(`
-      SELECT 
-        CASE WHEN jl.debit > 0 THEN 'inflow' ELSE 'outflow' END as direction,
-        CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END as amount,
-        je.description
-      FROM journal_lines jl
-      JOIN journal_entries je ON jl.journal_entry_id = je.id
-      JOIN accounts a ON jl.account_id = a.id
-      WHERE a.code LIKE '1102%' AND je.status = 'posted'
     `);
 
     const operatingInflow = parseFloat(receipts.rows[0].total) || 0;
     const operatingOutflow = parseFloat(payments.rows[0].total) || 0;
     const netOperating = operatingInflow - operatingOutflow;
 
-    // Opening balance (from initial journal)
-    const openingBalance = 500000;
+    // Get actual bank balance from opening entry
+    const openingResult = await pool.query(`
+      SELECT COALESCE(SUM(jl.debit) - SUM(jl.credit), 0) as balance
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE a.code = '1102' AND je.status = 'posted' AND je.description ILIKE '%opening%'
+    `);
+
+    // Get current bank balance
+    const currentResult = await pool.query(`
+      SELECT COALESCE(SUM(jl.debit) - SUM(jl.credit), 0) as balance
+      FROM journal_lines jl
+      JOIN journal_entries je ON jl.journal_entry_id = je.id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE a.code = '1102' AND je.status = 'posted'
+    `);
+
+    const openingBalance = parseFloat(openingResult.rows[0].balance) || 0;
+    const closingBalance = parseFloat(currentResult.rows[0].balance) || 0;
 
     res.json({
       operatingActivities: [
@@ -380,14 +429,13 @@ app.get('/api/reports/cash-flow', async (req, res) => {
       ],
       netOperating,
       openingBalance,
-      closingBalance: openingBalance + netOperating,
+      closingBalance,
     });
   } catch (error) {
     console.error('Cash flow error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 // Period Close
 app.post('/api/periods/close', async (req, res) => {
@@ -540,9 +588,29 @@ app.get('/api/reports/wht-certificates', async (req, res) => {
 });
 
 // Tax Rates
+// app.get('/api/tax-rates', async (req, res) => {
+//   try {
+//     const result = await pool.query('SELECT * FROM tax_rates WHERE is_active = true ORDER BY name');
+//     res.json(result.rows);
+//   } catch (error) {
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
+
+// app.put('/api/tax-rates/:id', async (req, res) => {
+//   try {
+//     const { rate } = req.body;
+//     await pool.query('UPDATE tax_rates SET rate = $1 WHERE id = $2', [rate, req.params.id]);
+//     res.json({ message: 'Tax rate updated' });
+//   } catch (error) {
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
+
+// Tax Rates
 app.get('/api/tax-rates', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM tax_rates WHERE is_active = true ORDER BY name');
+    const result = await pool.query('SELECT * FROM tax_codes WHERE is_active = true ORDER BY name');
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
@@ -552,7 +620,7 @@ app.get('/api/tax-rates', async (req, res) => {
 app.put('/api/tax-rates/:id', async (req, res) => {
   try {
     const { rate } = req.body;
-    await pool.query('UPDATE tax_rates SET rate = $1 WHERE id = $2', [rate, req.params.id]);
+    await pool.query('UPDATE tax_codes SET rate = $1 WHERE id = $2', [rate, req.params.id]);
     res.json({ message: 'Tax rate updated' });
   } catch (error) {
     res.status(500).json({ error: 'Server error' });
