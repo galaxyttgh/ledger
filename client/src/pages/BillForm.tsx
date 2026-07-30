@@ -185,7 +185,36 @@ const BillForm = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+//   const handleSubmit = async (e: React.FormEvent) => {
+//     e.preventDefault();
+//     setLoading(true);
+
+//     try {
+//   await api.post('/bills', {
+//   supplier_id: parseInt(supplierId),
+//   bill_date: billDate,
+//   due_date: dueDate,
+//   description,
+//   subtotal: parseFloat(amount),
+//   branch_id: branchId ? parseInt(branchId) : null,
+// });
+//     //     supplier_id: parseInt(supplierId),
+//     //     bill_date: billDate,
+//     //     due_date: dueDate,
+//     //     description,
+//     //     amount: parseFloat(amount),
+//     //     branch_id: branchId ? parseInt(branchId) : null,
+//     //   });
+//       toast.success('Bill created successfully!');
+//       navigate('/bills');
+//     } catch (err: any) {
+//       toast.error(err.response?.data?.error || 'Failed to create bill');
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -195,7 +224,8 @@ const BillForm = () => {
         bill_date: billDate,
         due_date: dueDate,
         description,
-        amount: parseFloat(amount),
+        subtotal: parseFloat(amount),
+        tax_code: 'VAT-STANDARD',
         branch_id: branchId ? parseInt(branchId) : null,
       });
       toast.success('Bill created successfully!');
@@ -206,7 +236,6 @@ const BillForm = () => {
       setLoading(false);
     }
   };
-
   const subtotal = parseFloat(amount) || 0;
   const vat = subtotal * 0.075;
   const total = subtotal + vat;

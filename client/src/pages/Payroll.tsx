@@ -65,21 +65,71 @@ const handleDeleteEmployee = async (id: number) => {
     }
   };
 
-  const handleRunPayroll = async () => {
-    setRunning(true);
-    setMessage('');
-    try {
-      const response = await api.post('/payroll/run', { period });
-      setSelectedRun(response.data);
-      setMessage('✅ Payroll run completed');
-      fetchRuns();
-    } catch (error) {
-      setMessage('❌ Payroll run failed');
-    } finally {
-      setRunning(false);
-    }
-  };
+//   const handleRunPayroll = async () => {
+//     setRunning(true);
+//     setMessage('');
+//     try {
+//       const response = await api.post('/payroll/run', { period });
+//       setSelectedRun(response.data);
+//       setMessage('✅ Payroll run completed');
+//       fetchRuns();
+//     } catch (error) {
+//       setMessage('❌ Payroll run failed');
+//     } finally {
+//       setRunning(false);
+//     }
+//   };
 
+const handleRunPayroll = async () => {
+  setRunning(true);
+  setMessage('');
+  try {
+    const response = await api.post('/payroll/run', { period });
+    // New backend returns { message, summary, payslips, run_id }
+    setSelectedRun({
+      run: {
+        id: response.data.run_id,
+        period: period,
+        run_date: new Date().toISOString(),
+        status: 'posted',
+        total_gross: response.data.summary.total_gross,
+        total_deductions: response.data.summary.total_deductions,
+        total_net: response.data.summary.total_net,
+        created_by_name: '',
+      },
+      payslips: response.data.payslips.map((p: any) => ({
+        id: p.employee,
+        employee_code: p.employee,
+        first_name: p.employee.split(' ')[0],
+        last_name: p.employee.split(' ')[1] || '',
+        gross_pay: p.grossPay,
+        paye_tax: p.monthlyPAYE,
+        pension_employee: p.pensionEmployee,
+        total_deductions: p.totalDeductions,
+        net_pay: p.netPay,
+      })),
+    });
+    setMessage('✅ Payroll run completed');
+    fetchRuns();
+    fetchEmployees();
+  } catch (error) {
+    setMessage('❌ Payroll run failed');
+  } finally {
+    setRunning(false);
+  }
+};
+
+const viewPayslips = async (runId: number, period: string) => {
+  try {
+    const response = await api.get(`/payroll/runs/${runId}`);
+    setSelectedRun({
+      run: response.data,
+      payslips: response.data.payslips,
+    });
+  } catch (error) {
+    console.error('Failed to fetch payslips:', error);
+  }
+};
   return (
     <Layout>
     <div className="mb-6 flex justify-between items-center">
@@ -168,7 +218,7 @@ const handleDeleteEmployee = async (id: number) => {
             </thead>
             <tbody className="divide-y">
               {runs.map((run) => (
-                <tr key={run.id} className="hover:bg-gray-50">
+               <tr key={run.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => viewPayslips(run.id, run.period)}>
                   <td className="px-6 py-3 font-medium">{run.period}</td>
                   <td className="px-6 py-3 text-gray-600">{new Date(run.run_date).toLocaleDateString()}</td>
                   <td className="px-6 py-3 text-right">₦{Number(run.total_gross).toLocaleString()}</td>
