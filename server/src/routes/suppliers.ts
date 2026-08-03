@@ -7,6 +7,8 @@ const supplierSchema = z.object({
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   phone: z.string().optional().or(z.literal('')),
   address: z.string().optional().or(z.literal('')),
+  tax_id: z.string().optional().or(z.literal('')),
+  payment_terms: z.number().optional(),
 });
 
 const router = express.Router();
@@ -31,15 +33,15 @@ router.post('/', async (req, res) => {
       return;
     }
 
-    const { name, email, phone, address } = req.body;
-    const userId = (req as any).userId || 1;
-    const code = `SUPP-${Date.now().toString().slice(-6)}`;
+  const { name, email, phone, address, tax_id, payment_terms } = req.body;
+const userId = (req as any).userId || 1;
+const code = `SUPP-${Date.now().toString().slice(-6)}`;
 
-    const result = await pool.query(
-      `INSERT INTO suppliers (code, name, email, phone, address) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [code, name, email, phone, address]
-    );
+const result = await pool.query(
+  `INSERT INTO suppliers (code, name, email, phone, address, tax_id, payment_terms) 
+   VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+  [code, name, email, phone, address, tax_id || null, payment_terms || 30]
+);
 
     await pool.query(
       `INSERT INTO audit_logs (user_id, action, table_name, record_id, new_values)
