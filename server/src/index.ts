@@ -21,7 +21,9 @@ import pool from './db/pool.js';
 import { authMiddleware } from './middleware/auth.js';
 import budgetRoutes from './routes/budgets.js';
 import assetRoutes from './routes/assets.js';
-
+import quotationRoutes from './routes/quotations.js';
+import collectionRoutes from './routes/collections.js';
+import poRoutes from './routes/purchaseOrders.js';
 dotenv.config();
 
 const app = express();
@@ -58,6 +60,9 @@ app.use('/api/branches', branchRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/assets', assetRoutes);
+app.use('/api/quotations', quotationRoutes);
+app.use('/api/collections', collectionRoutes);
+app.use('/api/purchase-orders', poRoutes);
 // Test route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PrimeLedger API is running' });
@@ -131,14 +136,13 @@ app.get('/api/reports/income-statement', async (req, res) => {
 });
 
 // Balance Sheet
-// Balance Sheet
 app.get('/api/reports/balance-sheet', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        a.type,
-        a.code,
-        a.name,
+        a.type, a.code, a.name,
+        COALESCE(SUM(jl.debit), 0) as total_debit,
+        COALESCE(SUM(jl.credit), 0) as total_credit,
         CASE 
           WHEN a.type IN ('asset', 'expense') THEN
             COALESCE(SUM(jl.debit), 0) - COALESCE(SUM(jl.credit), 0)
@@ -150,23 +154,21 @@ app.get('/api/reports/balance-sheet', async (req, res) => {
       LEFT JOIN journal_entries je ON jl.journal_entry_id = je.id AND je.status = 'posted'
       WHERE a.type IN ('asset', 'liability', 'equity', 'revenue', 'expense')
       GROUP BY a.id, a.code, a.name, a.type
+      HAVING COALESCE(SUM(jl.debit), 0) + COALESCE(SUM(jl.credit), 0) > 0
       ORDER BY a.code
     `);
 
     const assets = result.rows
-      .filter(r => r.type === 'asset')
-      .map(r => ({ code: r.code, name: r.name, amount: Number(r.balance) }))
-      .filter(r => r.amount !== 0);
+      .filter(r => r.type === 'asset' && Number(r.balance) !== 0)
+      .map(r => ({ code: r.code, name: r.name, amount: Number(r.balance) }));
 
     const liabilities = result.rows
-      .filter(r => r.type === 'liability')
-      .map(r => ({ code: r.code, name: r.name, amount: Math.abs(Number(r.balance)) }))
-      .filter(r => r.amount !== 0);
+      .filter(r => r.type === 'liability' && Number(r.balance) !== 0)
+      .map(r => ({ code: r.code, name: r.name, amount: Number(r.balance) }));
 
-    // Calculate net income (Revenue - Expenses)
     const totalRevenue = result.rows
       .filter(r => r.type === 'revenue')
-      .reduce((sum, r) => sum + Math.abs(Number(r.balance)), 0);
+      .reduce((sum, r) => sum + Number(r.balance), 0);
     
     const totalExpenses = result.rows
       .filter(r => r.type === 'expense')
@@ -175,16 +177,11 @@ app.get('/api/reports/balance-sheet', async (req, res) => {
     const netIncome = totalRevenue - totalExpenses;
 
     const equity = result.rows
-      .filter(r => r.type === 'equity')
-      .map(r => ({ code: r.code, name: r.name, amount: Math.abs(Number(r.balance)) }));
+      .filter(r => r.type === 'equity' && Number(r.balance) !== 0)
+      .map(r => ({ code: r.code, name: r.name, amount: Number(r.balance) }));
 
-    // Add net income to equity
     if (netIncome !== 0) {
-      equity.push({
-        code: 'NET',
-        name: 'Current Period Net Income',
-        amount: netIncome,
-      });
+      equity.push({ code: 'NET', name: 'Current Period Net Income', amount: netIncome });
     }
 
     const totalAssets = assets.reduce((sum, a) => sum + a.amount, 0);
@@ -192,16 +189,12 @@ app.get('/api/reports/balance-sheet', async (req, res) => {
     const totalEquity = equity.reduce((sum, e) => sum + e.amount, 0);
 
     res.json({
-      assets,
-      totalAssets,
-      liabilities,
-      totalLiabilities,
-      equity,
-      totalEquity,
+      assets, totalAssets,
+      liabilities, totalLiabilities,
+      equity, totalEquity,
       totalLiabilitiesAndEquity: totalLiabilities + totalEquity,
       netIncome,
     });
-
   } catch (error) {
     console.error('Balance sheet error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -573,13 +566,21 @@ app.get('/api/reports/wht-certificates', async (req, res) => {
       HAVING b.total > 0
     `);
 
-    const certificates = result.rows.map(row => ({
-      ...row,
-      wht_rate: 5, // 5% WHT
-      wht_amount: parseFloat(row.subtotal) * 0.05,
-      net_payment: parseFloat(row.total) - (parseFloat(row.subtotal) * 0.05),
-    }));
-
+    // const certificates = result.rows.map(row => ({
+    //   ...row,
+    //   wht_rate: 5, // 5% WHT
+    //   wht_amount: parseFloat(row.subtotal) * 0.05,
+    //  net_payment: parseFloat(row.total) - wht_amount,
+    // }));
+const certificates = result.rows.map(row => {
+  const whtAmount = parseFloat(row.subtotal) * 0.05;
+  return {
+    ...row,
+    wht_rate: 5,
+    wht_amount: whtAmount,
+    net_payment: parseFloat(row.total) - whtAmount,
+  };
+});
     res.json(certificates);
   } catch (error) {
     console.error('WHT error:', error);

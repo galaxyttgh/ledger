@@ -627,14 +627,75 @@ router.post('/:id/reverse', authMiddleware, periodGuard, async (req, res) => {
 });
 
 // Trial Balance
+// router.get('/reports/trial-balance', authMiddleware, async (req, res) => {
+//   try {
+//     const result = await pool.query(`
+//       SELECT 
+//         a.id,
+//         a.code,
+//         a.name,
+//         a.type,
+//         COALESCE(SUM(jl.debit), 0) as total_debit,
+//         COALESCE(SUM(jl.credit), 0) as total_credit,
+//         CASE 
+//           WHEN COALESCE(SUM(jl.debit), 0) >= COALESCE(SUM(jl.credit), 0) 
+//           THEN COALESCE(SUM(jl.debit), 0) - COALESCE(SUM(jl.credit), 0)
+//           ELSE 0
+//         END as debit_balance,
+//         CASE 
+//           WHEN COALESCE(SUM(jl.credit), 0) > COALESCE(SUM(jl.debit), 0) 
+//           THEN COALESCE(SUM(jl.credit), 0) - COALESCE(SUM(jl.debit), 0)
+//           ELSE 0
+//         END as credit_balance
+//       FROM accounts a
+//       LEFT JOIN journal_lines jl ON a.id = jl.account_id
+//       LEFT JOIN journal_entries je ON jl.journal_entry_id = je.id
+//       WHERE je.status = 'posted' OR je.status IS NULL
+//       GROUP BY a.id, a.code, a.name, a.type
+//       ORDER BY a.code
+//     `);
+
+//     const totals = result.rows.reduce(
+//       (acc, row) => ({
+//         total_debit: acc.total_debit + Number(row.total_debit),
+//         total_credit: acc.total_credit + Number(row.total_credit),
+//         debit_balance: acc.debit_balance + Number(row.debit_balance),
+//         credit_balance: acc.credit_balance + Number(row.credit_balance),
+//       }),
+//       { total_debit: 0, total_credit: 0, debit_balance: 0, credit_balance: 0 }
+//     );
+
+//     res.json({
+//       accounts: result.rows.filter(row => Number(row.total_debit) > 0 || Number(row.total_credit) > 0),
+//       totals
+//     });
+
+//   } catch (error) {
+//     console.error('Trial balance error:', error);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
+// Trial Balance with dimension filter
 router.get('/reports/trial-balance', authMiddleware, async (req, res) => {
   try {
+    const { branch_id, period } = req.query;
+    
+    let dimensionFilter = '';
+    const params: any[] = [];
+    
+    if (branch_id) {
+      dimensionFilter = 'AND je.branch_id = $1';
+      params.push(branch_id);
+    }
+    if (period) {
+      const paramNum = params.length + 1;
+      dimensionFilter += ` AND je.period = $${paramNum}`;
+      params.push(period);
+    }
+
     const result = await pool.query(`
       SELECT 
-        a.id,
-        a.code,
-        a.name,
-        a.type,
+        a.id, a.code, a.name, a.type,
         COALESCE(SUM(jl.debit), 0) as total_debit,
         COALESCE(SUM(jl.credit), 0) as total_credit,
         CASE 
@@ -649,11 +710,12 @@ router.get('/reports/trial-balance', authMiddleware, async (req, res) => {
         END as credit_balance
       FROM accounts a
       LEFT JOIN journal_lines jl ON a.id = jl.account_id
-      LEFT JOIN journal_entries je ON jl.journal_entry_id = je.id
-      WHERE je.status = 'posted' OR je.status IS NULL
+      LEFT JOIN journal_entries je ON jl.journal_entry_id = je.id AND je.status = 'posted'
+      WHERE 1=1 ${dimensionFilter}
       GROUP BY a.id, a.code, a.name, a.type
+      HAVING COALESCE(SUM(jl.debit), 0) + COALESCE(SUM(jl.credit), 0) > 0
       ORDER BY a.code
-    `);
+    `, params);
 
     const totals = result.rows.reduce(
       (acc, row) => ({
@@ -666,8 +728,9 @@ router.get('/reports/trial-balance', authMiddleware, async (req, res) => {
     );
 
     res.json({
-      accounts: result.rows.filter(row => Number(row.total_debit) > 0 || Number(row.total_credit) > 0),
-      totals
+      accounts: result.rows,
+      totals,
+      filters: { branch_id: branch_id || null, period: period || null }
     });
 
   } catch (error) {
@@ -675,7 +738,6 @@ router.get('/reports/trial-balance', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 // ============================================
 // RECURRING JOURNALS
 // ============================================

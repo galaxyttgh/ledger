@@ -208,14 +208,16 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 router.post('/', authMiddleware, periodGuard, async (req: Request, res: Response) => {
   const client = await pool.connect();
   try {
-    const { 
-      supplier_id, 
-      bill_id, 
-      amount, 
-      payment_date, 
-      payment_method,
-      transaction_type
-    } = req.body;
+   const { 
+  supplier_id, 
+  bill_id, 
+  amount, 
+  payment_date, 
+  payment_method,
+  transaction_type,
+  reference_number,
+  notes
+} = req.body;
     
     const userId = (req as any).userId || 1;
     const period = (req as any).period || payment_date.substring(0, 7);
@@ -236,15 +238,17 @@ router.post('/', authMiddleware, periodGuard, async (req: Request, res: Response
     await client.query('BEGIN');
 
     // FIX: Explicitly type the query result
-    const paymentResult = await client.query<PaymentResult>(`
-      INSERT INTO payments (
-        payment_number, supplier_id, bill_id, amount, 
-        payment_date, payment_method, wht_amount, net_amount
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *
-    `, [paymentNumber, supplier_id, bill_id, paymentAmount, 
-        payment_date, payment_method || 'bank_transfer', whtAmount, netPayment]);
-
+  const paymentResult = await client.query<PaymentResult>(`
+  INSERT INTO payments (
+    payment_number, supplier_id, bill_id, amount, 
+    payment_date, payment_method, wht_amount, net_amount,
+    reference_number, notes
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+  RETURNING *
+`, [paymentNumber, supplier_id, bill_id, paymentAmount, 
+    payment_date, payment_method || 'bank_transfer', whtAmount, netPayment,
+    reference_number || null, notes || null]);
+    
     const payment = paymentResult.rows[0];
     const paymentId: number = payment.id;
 

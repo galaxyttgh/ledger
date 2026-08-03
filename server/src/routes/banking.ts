@@ -195,11 +195,57 @@ router.get('/summary', async (req, res) => {
 });
 
 // Auto-match bank transactions to journal entries
+// router.post('/auto-match', async (req, res) => {
+//   try {
+//     const { bank_account_id } = req.body;
+
+//     // Get unmatched bank transactions
+//     const unmatched = await pool.query(
+//       `SELECT * FROM bank_transactions WHERE bank_account_id = $1 AND status = 'unmatched'`,
+//       [bank_account_id]
+//     );
+
+//     let matched = 0;
+
+//     for (const txn of unmatched.rows) {
+//       // Try exact amount match
+//       const matches = await pool.query(`
+//         SELECT je.id, je.entry_number, 
+//                ABS(COALESCE(SUM(jl.debit), 0) - $1) as amount_diff
+//         FROM journal_entries je
+//         JOIN journal_lines jl ON je.id = jl.journal_entry_id
+//         WHERE je.status = 'posted'
+//         GROUP BY je.id, je.entry_number
+//         HAVING ABS(COALESCE(SUM(jl.debit), 0) - $1) < 0.01
+//         LIMIT 1
+//       `, [Math.abs(txn.amount)]);
+
+//       if (matches.rows.length > 0) {
+//         // Auto-match
+//         await pool.query(
+//           `UPDATE bank_transactions SET matched_journal_id = $1, status = 'matched' WHERE id = $2`,
+//           [matches.rows[0].id, txn.id]
+//         );
+//         matched++;
+//       }
+//     }
+
+//     res.json({ 
+//       message: `Auto-matched ${matched} of ${unmatched.rows.length} transactions`,
+//       matched,
+//       total: unmatched.rows.length 
+//     });
+
+//   } catch (error) {
+//     console.error('Auto-match error:', error);
+//     res.status(500).json({ error: 'Auto-match failed' });
+//   }
+// });
+// Auto-match bank transactions with fuzzy logic
 router.post('/auto-match', async (req, res) => {
   try {
-    const { bank_account_id } = req.body;
+    const { bank_account_id, tolerance = 100 } = req.body;
 
-    // Get unmatched bank transactions
     const unmatched = await pool.query(
       `SELECT * FROM bank_transactions WHERE bank_account_id = $1 AND status = 'unmatched'`,
       [bank_account_id]
@@ -208,23 +254,55 @@ router.post('/auto-match', async (req, res) => {
     let matched = 0;
 
     for (const txn of unmatched.rows) {
-      // Try exact amount match
-      const matches = await pool.query(`
-        SELECT je.id, je.entry_number, 
-               ABS(COALESCE(SUM(jl.debit), 0) - $1) as amount_diff
+      const txnAmount = Math.abs(txn.amount);
+      
+      // Try exact match first
+      let match = await pool.query(`
+        SELECT je.id, je.entry_number,
+               ABS(COALESCE(SUM(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END), 0) - $1) as amount_diff
         FROM journal_entries je
         JOIN journal_lines jl ON je.id = jl.journal_entry_id
         WHERE je.status = 'posted'
+          AND je.id NOT IN (SELECT matched_journal_id FROM bank_transactions WHERE matched_journal_id IS NOT NULL)
         GROUP BY je.id, je.entry_number
-        HAVING ABS(COALESCE(SUM(jl.debit), 0) - $1) < 0.01
+        HAVING ABS(COALESCE(SUM(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END), 0) - $1) <= $2
+        ORDER BY amount_diff ASC
         LIMIT 1
-      `, [Math.abs(txn.amount)]);
+      `, [txnAmount, tolerance]);
 
-      if (matches.rows.length > 0) {
-        // Auto-match
+      // If no amount match, try fuzzy reference match
+      if (match.rows.length === 0 && txn.reference) {
+        match = await pool.query(`
+          SELECT je.id, je.entry_number, 0 as amount_diff
+          FROM journal_entries je
+          WHERE je.status = 'posted'
+            AND je.description ILIKE $1
+            AND je.id NOT IN (SELECT matched_journal_id FROM bank_transactions WHERE matched_journal_id IS NOT NULL)
+          LIMIT 1
+        `, [`%${txn.reference}%`]);
+      }
+
+      // If still no match, try date proximity (±2 days)
+      if (match.rows.length === 0) {
+        match = await pool.query(`
+          SELECT je.id, je.entry_number,
+                 ABS(COALESCE(SUM(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END), 0) - $1) as amount_diff
+          FROM journal_entries je
+          JOIN journal_lines jl ON je.id = jl.journal_entry_id
+          WHERE je.status = 'posted'
+            AND je.entry_date BETWEEN $2::date - 2 AND $2::date + 2
+            AND je.id NOT IN (SELECT matched_journal_id FROM bank_transactions WHERE matched_journal_id IS NOT NULL)
+          GROUP BY je.id, je.entry_number
+          HAVING ABS(COALESCE(SUM(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END), 0) - $1) <= $3
+          ORDER BY amount_diff ASC
+          LIMIT 1
+        `, [txnAmount, txn.transaction_date, tolerance * 5]);
+      }
+
+      if (match.rows.length > 0) {
         await pool.query(
           `UPDATE bank_transactions SET matched_journal_id = $1, status = 'matched' WHERE id = $2`,
-          [matches.rows[0].id, txn.id]
+          [match.rows[0].id, txn.id]
         );
         matched++;
       }

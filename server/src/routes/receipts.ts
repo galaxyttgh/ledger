@@ -145,7 +145,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, periodGuard, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { customer_id, invoice_id, amount, payment_date, payment_method } = req.body;
+   const { customer_id, invoice_id, amount, payment_date, payment_method, reference_number, notes } = req.body;
     const userId = (req as any).userId || 1;
     const period = (req as any).period || payment_date.substring(0, 7);
     const receiptAmount = parseFloat(amount);
@@ -154,12 +154,12 @@ router.post('/', authMiddleware, periodGuard, async (req, res) => {
     await client.query('BEGIN');
 
     // Create receipt
-    const receipt = await client.query(`
-      INSERT INTO receipts (
-        receipt_number, customer_id, invoice_id, amount, payment_date, payment_method
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `, [receiptNumber, customer_id, invoice_id, receiptAmount, payment_date, payment_method || 'bank_transfer']);
+   const receipt = await client.query(`
+  INSERT INTO receipts (
+    receipt_number, customer_id, invoice_id, amount, payment_date, payment_method, reference_number, notes
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+  RETURNING *
+`, [receiptNumber, customer_id, invoice_id, receiptAmount, payment_date, payment_method || 'bank_transfer', reference_number || null, notes || null]);
 
     const receiptId = receipt.rows[0].id;
 

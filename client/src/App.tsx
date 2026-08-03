@@ -100,6 +100,13 @@ import SupplierStatement from './pages/SupplierStatement';
 import PaymentBatch from './pages/PaymentBatch';
 import ChartOfAccounts from './pages/ChartOfAccounts';
 import EmployeeEdit from './pages/EmployeeEdit';
+import QuotationForm from './pages/QuotationForm';
+import Quotations from './pages/Quotations';
+import Collections from './pages/Collections';
+import PurchaseOrders from './pages/PurchaseOrders';
+import POForm from './pages/POForm';
+import GoodsReceiptForm from './pages/GoodsReceiptForm';
+import ThreeWayMatch from './pages/ThreeWayMatch';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -192,6 +199,13 @@ const AppRoutes = () => {
 <Route path="/payments/batch" element={<ProtectedRoute><PaymentBatch /></ProtectedRoute>} />
 <Route path="/accounts" element={<ProtectedRoute><ChartOfAccounts /></ProtectedRoute>} />
 <Route path="/payroll/employees/:id/edit" element={<ProtectedRoute><EmployeeEdit /></ProtectedRoute>} />
+    <Route path="/quotations" element={<ProtectedRoute><Quotations /></ProtectedRoute>} />
+<Route path="/quotations/new" element={<ProtectedRoute><QuotationForm /></ProtectedRoute>} />
+<Route path="/collections" element={<ProtectedRoute><Collections /></ProtectedRoute>} />
+<Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
+<Route path="/purchase-orders/new" element={<ProtectedRoute><POForm /></ProtectedRoute>} />
+<Route path="/purchase-orders/goods-receipt" element={<ProtectedRoute><GoodsReceiptForm /></ProtectedRoute>} />
+<Route path="/purchase-orders/match" element={<ProtectedRoute><ThreeWayMatch /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
