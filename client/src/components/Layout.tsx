@@ -329,14 +329,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       { path: '/cash-flow', label: 'Cash Flow' },
       { path: '/vat-schedule', label: 'VAT Schedule' },
       { path: '/wht-certificates', label: 'WHT Certificates' },
+      { path: '/consolidated-report', label: 'Consolidated' },
     ]},
     { label: 'Approvals', icon: '✅', items: [
       { path: '/approvals', label: 'Pending Approvals' },
       { path: '/approval-rules', label: 'Approval Rules' },
+      { path: '/delegations', label: 'Delegation & SLA' },
     ]},
     { label: 'Controls', icon: '🔒', items: [
       { path: '/audit-trail', label: 'Audit Trail' },
       { path: '/tax-rates', label: 'Tax Rates' },
+      { path: '/sod-rules', label: 'SoD Rules' },
     ]},
   ];
 

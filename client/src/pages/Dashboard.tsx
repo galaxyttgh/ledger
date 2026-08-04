@@ -263,7 +263,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import Layout from '../components/Layout';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, } from 'recharts';
 
 interface DashboardStats {
   customers: number;
@@ -280,7 +280,21 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [alerts, setAlerts] = useState<any>({});
   const [financials, setFinancials] = useState<any>({});
+const [trends, setTrends] = useState<any[]>([]);
 
+useEffect(() => {
+  fetchStats();
+  fetchAlerts();
+  fetchFinancials();
+  fetchTrends();
+}, []);
+
+const fetchTrends = async () => {
+  try {
+    const response = await api.get('/dashboard/trends');
+    setTrends(response.data);
+  } catch (error) { console.error('Failed to fetch trends'); }
+};
   useEffect(() => {
     fetchStats();
     fetchAlerts();
@@ -476,6 +490,23 @@ const Dashboard = () => {
         </div>
       </div>
 
+{trends.length > 0 && (
+  <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+    <h3 className="text-lg font-semibold text-gray-800 mb-4">Revenue vs Expenses Trend</h3>
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart data={trends}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="month" />
+        <YAxis />
+        <Tooltip />
+        <Legend />
+        <Line type="monotone" dataKey="revenue" stroke="#16a34a" strokeWidth={2} name="Revenue" />
+        <Line type="monotone" dataKey="expenses" stroke="#dc2626" strokeWidth={2} name="Expenses" />
+        <Line type="monotone" dataKey="profit" stroke="#2563eb" strokeWidth={2} name="Profit" />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+)}
       {/* Quick Actions for Mobile */}
       <div className="lg:hidden mb-6">
         <h3 className="text-base font-semibold text-gray-800 mb-3">Quick Actions</h3>

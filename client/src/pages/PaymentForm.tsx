@@ -408,17 +408,34 @@ const PaymentForm = () => {
     setAmount('');
   };
 
-  const handleBillChange = (id: string) => {
-    setBillId(id);
-    if (id) {
-      const bill = bills.find((b: any) => b.id === parseInt(id));
-      if (bill) {
-        setAmount(bill.total.toString());
-      }
-    } else {
-      setAmount('');
-    }
-  };
+  // const handleBillChange = (id: string) => {
+  //   setBillId(id);
+  //   if (id) {
+  //     const bill = bills.find((b: any) => b.id === parseInt(id));
+  //     if (bill) {
+  //       setAmount(bill.total.toString());
+  //     }
+  //   } else {
+  //     setAmount('');
+  //   }
+  // };
+
+  const handleBillChange = async (id: string) => {
+  setBillId(id);
+  if (!id) return;
+  try {
+    const response = await api.get(`/bills/${id}`);
+    const bill = response.data;
+    const paymentsRes = await api.get('/payments');
+    const paid = paymentsRes.data
+      .filter((p: any) => p.bill_number === bill.bill_number)
+      .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+    const remaining = Number(bill.total) - paid;
+    setAmount(remaining > 0 ? remaining.toString() : '0');
+  } catch (error) {
+    console.error('Failed to calculate remaining');
+  }
+};
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
