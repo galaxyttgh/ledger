@@ -107,6 +107,9 @@ import PurchaseOrders from './pages/PurchaseOrders';
 import POForm from './pages/POForm';
 import GoodsReceiptForm from './pages/GoodsReceiptForm';
 import ThreeWayMatch from './pages/ThreeWayMatch';
+import Delegations from './pages/Delegations';
+import ConsolidatedReport from './pages/ConsolidatedReport';
+import SoDRules from './pages/SoDRules';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -206,6 +209,9 @@ const AppRoutes = () => {
 <Route path="/purchase-orders/new" element={<ProtectedRoute><POForm /></ProtectedRoute>} />
 <Route path="/purchase-orders/goods-receipt" element={<ProtectedRoute><GoodsReceiptForm /></ProtectedRoute>} />
 <Route path="/purchase-orders/match" element={<ProtectedRoute><ThreeWayMatch /></ProtectedRoute>} />
+<Route path="/delegations" element={<ProtectedRoute><Delegations /></ProtectedRoute>} />
+<Route path="/consolidated-report" element={<ProtectedRoute><ConsolidatedReport /></ProtectedRoute>} />
+<Route path="/sod-rules" element={<ProtectedRoute><SoDRules /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

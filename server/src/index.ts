@@ -24,6 +24,8 @@ import assetRoutes from './routes/assets.js';
 import quotationRoutes from './routes/quotations.js';
 import collectionRoutes from './routes/collections.js';
 import poRoutes from './routes/purchaseOrders.js';
+import delegationRoutes from './routes/delegations.js';
+
 dotenv.config();
 
 const app = express();
@@ -63,6 +65,7 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/quotations', quotationRoutes);
 app.use('/api/collections', collectionRoutes);
 app.use('/api/purchase-orders', poRoutes);
+app.use('/api/delegations', delegationRoutes);
 // Test route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PrimeLedger API is running' });
@@ -561,17 +564,11 @@ app.get('/api/reports/wht-certificates', async (req, res) => {
       FROM bills b
       JOIN suppliers s ON b.supplier_id = s.id
       LEFT JOIN payments p ON b.id = p.bill_id
-      WHERE b.status IN ('posted', 'paid')
+      WHERE b.status IN ('posted', 'paid', 'partially_paid')
       GROUP BY s.id, s.name, s.tax_id, b.id, b.bill_number, b.bill_date, b.subtotal, b.tax_amount, b.total
       HAVING b.total > 0
     `);
 
-    // const certificates = result.rows.map(row => ({
-    //   ...row,
-    //   wht_rate: 5, // 5% WHT
-    //   wht_amount: parseFloat(row.subtotal) * 0.05,
-    //  net_payment: parseFloat(row.total) - wht_amount,
-    // }));
 const certificates = result.rows.map(row => {
   const whtAmount = parseFloat(row.subtotal) * 0.05;
   return {
@@ -788,6 +785,114 @@ app.get('/api/dashboard/financial-summary', async (req, res) => {
       netProfit: Math.abs(parseFloat(revenue.rows[0].total) || 0) - Math.abs(parseFloat(expenses.rows[0].total) || 0),
     });
   } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Consolidated Trial Balance (all branches)
+app.get('/api/reports/consolidated-trial-balance', async (req, res) => {
+  try {
+    const { period } = req.query;
+    let periodFilter = '';
+    const params: any[] = [];
+    
+    if (period) {
+      periodFilter = 'AND je.period = $1';
+      params.push(period);
+    }
+
+    const result = await pool.query(`
+      SELECT 
+        a.id, a.code, a.name, a.type,
+        COALESCE(SUM(jl.debit), 0) as total_debit,
+        COALESCE(SUM(jl.credit), 0) as total_credit,
+        CASE WHEN COALESCE(SUM(jl.debit), 0) >= COALESCE(SUM(jl.credit), 0) 
+          THEN COALESCE(SUM(jl.debit), 0) - COALESCE(SUM(jl.credit), 0) ELSE 0 END as debit_balance,
+        CASE WHEN COALESCE(SUM(jl.credit), 0) > COALESCE(SUM(jl.debit), 0) 
+          THEN COALESCE(SUM(jl.credit), 0) - COALESCE(SUM(jl.debit), 0) ELSE 0 END as credit_balance
+      FROM accounts a
+      LEFT JOIN journal_lines jl ON a.id = jl.account_id
+      LEFT JOIN journal_entries je ON jl.journal_entry_id = je.id AND je.status = 'posted'
+      WHERE 1=1 ${periodFilter}
+      GROUP BY a.id, a.code, a.name, a.type
+      HAVING COALESCE(SUM(jl.debit), 0) + COALESCE(SUM(jl.credit), 0) > 0
+      ORDER BY a.code
+    `, params);
+
+    // Also get branch-wise breakdown
+    const branchBreakdown = await pool.query(`
+      SELECT 
+        b.id as branch_id, b.name as branch_name,
+        COALESCE(SUM(CASE WHEN a.type IN ('asset', 'expense') THEN jl.debit - jl.credit ELSE 0 END), 0) as branch_balance
+      FROM branches b
+      LEFT JOIN journal_entries je ON b.id = je.branch_id AND je.status = 'posted'
+      LEFT JOIN journal_lines jl ON je.id = jl.journal_entry_id
+      LEFT JOIN accounts a ON jl.account_id = a.id
+      GROUP BY b.id, b.name
+      ORDER BY b.name
+    `);
+
+    const totals = result.rows.reduce(
+      (acc, row) => ({
+        total_debit: acc.total_debit + Number(row.total_debit),
+        total_credit: acc.total_credit + Number(row.total_credit),
+        debit_balance: acc.debit_balance + Number(row.debit_balance),
+        credit_balance: acc.credit_balance + Number(row.credit_balance),
+      }),
+      { total_debit: 0, total_credit: 0, debit_balance: 0, credit_balance: 0 }
+    );
+
+    res.json({
+      accounts: result.rows,
+      totals,
+      branches: branchBreakdown.rows,
+      period: period || 'All'
+    });
+
+  } catch (error) {
+    console.error('Consolidated TB error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/sod-rules', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM sod_rules ORDER BY id');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Monthly trend data for charts
+app.get('/api/dashboard/trends', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        TO_CHAR(je.entry_date, 'Mon') as month,
+        EXTRACT(MONTH FROM je.entry_date) as month_num,
+        EXTRACT(YEAR FROM je.entry_date) as year,
+        COALESCE(SUM(CASE WHEN a.type = 'revenue' THEN jl.credit - jl.debit ELSE 0 END), 0) as revenue,
+        COALESCE(SUM(CASE WHEN a.type = 'expense' THEN jl.debit - jl.credit ELSE 0 END), 0) as expenses
+      FROM journal_entries je
+      JOIN journal_lines jl ON je.id = jl.journal_entry_id
+      JOIN accounts a ON jl.account_id = a.id
+      WHERE je.status = 'posted' AND a.type IN ('revenue', 'expense')
+      GROUP BY EXTRACT(YEAR FROM je.entry_date), EXTRACT(MONTH FROM je.entry_date), TO_CHAR(je.entry_date, 'Mon')
+      ORDER BY year, month_num
+      LIMIT 12
+    `);
+
+    const data = result.rows.map(row => ({
+      month: row.month,
+      revenue: Math.abs(Number(row.revenue)),
+      expenses: Math.abs(Number(row.expenses)),
+      profit: Math.abs(Number(row.revenue)) - Math.abs(Number(row.expenses)),
+    }));
+
+    res.json(data);
+  } catch (error) {
+    console.error('Trends error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

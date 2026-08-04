@@ -400,17 +400,35 @@ const ReceiptForm = () => {
     setAmount('');
   };
 
-  const handleInvoiceChange = (id: string) => {
-    setInvoiceId(id);
-    if (id) {
-      const invoice = invoices.find((i: any) => i.id === parseInt(id));
-      if (invoice) {
-        setAmount(invoice.total.toString());
-      }
-    } else {
-      setAmount('');
-    }
-  };
+  // const handleInvoiceChange = (id: string) => {
+  //   setInvoiceId(id);
+  //   if (id) {
+  //     const invoice = invoices.find((i: any) => i.id === parseInt(id));
+  //     if (invoice) {
+  //       setAmount(invoice.total.toString());
+  //     }
+  //   } else {
+  //     setAmount('');
+  //   }
+  // };
+
+  const handleInvoiceChange = async (id: string) => {
+  setInvoiceId(id);
+  if (!id) return;
+  try {
+    const response = await api.get(`/invoices/${id}`);
+    const invoice = response.data;
+    // Fetch existing receipts for this invoice
+    const receiptsRes = await api.get('/receipts');
+    const paid = receiptsRes.data
+      .filter((r: any) => r.invoice_number === invoice.invoice_number)
+      .reduce((sum: number, r: any) => sum + Number(r.amount), 0);
+    const remaining = Number(invoice.total) - paid;
+    setAmount(remaining > 0 ? remaining.toString() : '0');
+  } catch (error) {
+    console.error('Failed to calculate remaining');
+  }
+};
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

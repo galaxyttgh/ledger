@@ -365,6 +365,14 @@ const JournalForm = () => {
     fetchBranches();
   }, []);
 
+  
+  const getPeriodFromDate = (date: string) => {
+  if (!date) return '';
+  const d = new Date(date + 'T00:00:00');
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  return `${months[d.getMonth()]}-${d.getFullYear()}`;
+};
+
   const fetchBranches = async () => {
     try {
       const response = await api.get('/branches');
@@ -527,30 +535,31 @@ const JournalForm = () => {
             
             {/* Stack on mobile, 3 columns on desktop */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={entryDate}
-                  onChange={(e) => {
-                    setEntryDate(e.target.value);
-                    if (errors.entryDate) setErrors({ ...errors, entryDate: '' });
-                  }}
-                  max={new Date().toISOString().split('T')[0]}
-                  className={`w-full px-3 py-2.5 border rounded-xl text-sm transition-colors
-                    ${errors.entryDate 
-                      ? 'border-red-300 focus:ring-red-500' 
-                      : 'border-gray-300 focus:ring-blue-500'
-                    }
-                    focus:outline-none focus:ring-2 focus:ring-opacity-50`}
-                  required
-                />
-                {errors.entryDate && (
-                  <p className="mt-1 text-xs text-red-600">{errors.entryDate}</p>
-                )}
-              </div>
+             <div>
+  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+    Date <span className="text-red-500">*</span>
+  </label>
+  <input
+    type="date"
+    value={entryDate}
+    onChange={(e) => {
+      setEntryDate(e.target.value);
+      setPeriod(getPeriodFromDate(e.target.value));
+      if (errors.entryDate) setErrors({ ...errors, entryDate: '' });
+    }}
+    max={new Date().toISOString().split('T')[0]}
+    className={`w-full px-3 py-2.5 border rounded-xl text-sm transition-colors
+      ${errors.entryDate 
+        ? 'border-red-300 focus:ring-red-500' 
+        : 'border-gray-300 focus:ring-blue-500'
+      }
+      focus:outline-none focus:ring-2 focus:ring-opacity-50`}
+    required
+  />
+  {errors.entryDate && (
+    <p className="mt-1 text-xs text-red-600">{errors.entryDate}</p>
+  )}
+</div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Period <span className="text-red-500">*</span>

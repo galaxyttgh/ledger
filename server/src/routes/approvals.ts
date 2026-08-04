@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db/pool.js';
+import { sodCheck } from '../middleware/sod.js';
 
 const router = express.Router();
 
@@ -19,11 +20,20 @@ router.post('/submit', async (req, res) => {
       return;
     }
 
-    const result = await pool.query(
-      `INSERT INTO approvals (transaction_type, transaction_id, submitted_by, status)
-       VALUES ($1, $2, 1, 'pending') RETURNING *`,
-      [transaction_type, transaction_id]
-    );
+    // const result = await pool.query(
+    //   `INSERT INTO approvals (transaction_type, transaction_id, submitted_by, status)
+    //    VALUES ($1, $2, 1, 'pending') RETURNING *`,
+    //   [transaction_type, transaction_id]
+    // );
+
+    // Set SLA due date (48 hours from submission)
+const slaDueDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+const result = await pool.query(
+  `INSERT INTO approvals (transaction_type, transaction_id, submitted_by, status, sla_due_date)
+   VALUES ($1, $2, 1, 'pending', $3) RETURNING *`,
+  [transaction_type, transaction_id, slaDueDate]
+);
 
     res.status(201).json({ message: 'Submitted for approval', approval: result.rows[0] });
 
@@ -50,7 +60,7 @@ router.get('/pending', async (req, res) => {
 });
 
 // Approve
-router.post('/:id/approve', async (req, res) => {
+router.post('/:id/approve', sodCheck, async (req, res) => {
   try {
     const { id } = req.params;
     
