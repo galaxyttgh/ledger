@@ -211,6 +211,8 @@ interface Approval {
   approved_by_name: string | null;
   approved_at: string | null;
   comments: string | null;
+    description?: string;
+  amount?: number;
 }
 
 const Approvals = () => {
@@ -438,17 +440,19 @@ const Approvals = () => {
                   {/* Desktop Table */}
                   <div className="hidden lg:block overflow-x-auto">
                     <table className="w-full">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Transaction ID</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Submitted By</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
-                        </tr>
-                      </thead>
+                   <thead className="bg-gray-50">
+  <tr>
+    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Type</th>
+    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Transaction</th>
+    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Description</th>
+    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Amount</th>
+    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Submitted By</th>
+    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
+  </tr>
+</thead>
                       <tbody className="divide-y divide-gray-100">
-                        {pending.map((a) => (
+                        {/* {pending.map((a) => (
                           <tr key={a.id} className="hover:bg-gray-50 transition-colors">
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
@@ -482,13 +486,50 @@ const Approvals = () => {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        ))} */}
+                        {pending.map((a) => (
+  <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+    <td className="px-6 py-4">
+      <div className="flex items-center gap-2">
+        <span>{getTransactionIcon(a.transaction_type)}</span>
+        <span className="text-sm font-medium capitalize">{a.transaction_type}</span>
+      </div>
+    </td>
+    <td className="px-6 py-4 text-sm text-gray-600">#{a.transaction_id}</td>
+    <td className="px-6 py-4 text-sm text-gray-600">{a.description || '-'}</td>
+    <td className="px-6 py-4 text-sm text-right font-medium">₦{Number(a.amount || 0).toLocaleString()}</td>
+    <td className="px-6 py-4 text-sm text-gray-600">{a.submitted_by_name}</td>
+    <td className="px-6 py-4 text-sm text-gray-500">
+      {new Date(a.submitted_at).toLocaleDateString()}
+    </td>
+    <td className="px-6 py-4">
+      <div className="flex gap-2">
+        <button
+          onClick={() => handleApprove(a.id)}
+          disabled={actionLoading === a.id}
+          className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 
+                   disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {actionLoading === a.id ? '...' : '✓ Approve'}
+        </button>
+        <button
+          onClick={() => handleReject(a.id)}
+          disabled={actionLoading === a.id}
+          className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 
+                   disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {actionLoading === a.id ? '...' : '✗ Reject'}
+        </button>
+      </div>
+    </td>
+  </tr>
+))}
                       </tbody>
                     </table>
                   </div>
 
                   {/* Mobile Cards */}
-                  <div className="lg:hidden divide-y divide-gray-100">
+                  {/* <div className="lg:hidden divide-y divide-gray-100">
                     {pending.map((a) => (
                       <div key={a.id} className="p-4">
                         <div className="flex items-start justify-between mb-3">
@@ -539,7 +580,66 @@ const Approvals = () => {
                         </div>
                       </div>
                     ))}
-                  </div>
+                  </div> */}
+                  <div className="lg:hidden divide-y divide-gray-100">
+  {pending.map((a) => (
+    <div key={a.id} className="p-4">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center text-lg">
+            {getTransactionIcon(a.transaction_type)}
+          </div>
+          <div>
+            <h4 className="font-semibold text-gray-800 capitalize">{a.transaction_type}</h4>
+            <p className="text-xs text-gray-500">#{a.transaction_id}</p>
+          </div>
+        </div>
+        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">
+          Pending
+        </span>
+      </div>
+
+      {a.description && (
+        <p className="text-sm text-gray-600 mb-2">{a.description}</p>
+      )}
+     {a.amount && a.amount > 0 && (
+  <p className="text-sm font-bold text-gray-800 mb-2">₦{Number(a.amount).toLocaleString()}</p>
+)}
+
+      <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
+        <div>
+          <p className="text-xs text-gray-500">Submitted By</p>
+          <p className="font-medium text-gray-700">{a.submitted_by_name}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">Date</p>
+          <p className="font-medium text-gray-700">
+            {new Date(a.submitted_at).toLocaleDateString()}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => handleApprove(a.id)}
+          disabled={actionLoading === a.id}
+          className="flex-1 px-3 py-2.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 
+                   disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {actionLoading === a.id ? 'Processing...' : '✓ Approve'}
+        </button>
+        <button
+          onClick={() => handleReject(a.id)}
+          disabled={actionLoading === a.id}
+          className="flex-1 px-3 py-2.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 
+                   disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+        >
+          {actionLoading === a.id ? 'Processing...' : '✗ Reject'}
+        </button>
+      </div>
+    </div>
+  ))}
+</div>
                 </>
               )}
             </div>

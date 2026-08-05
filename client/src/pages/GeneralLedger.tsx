@@ -541,6 +541,8 @@ const GeneralLedger = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [reverseModal, setReverseModal] = useState<{ id: number; date: string; reason: string } | null>(null);
+const [dateFrom, setDateFrom] = useState('');
+const [dateTo, setDateTo] = useState('');
 
   const perPage = 10;
 
@@ -548,6 +550,30 @@ const GeneralLedger = () => {
     fetchEntries();
     fetchBranches();
   }, []);
+
+  // useEffect(() => {
+  //   let filtered = entries;
+    
+  //   if (search) {
+  //     const searchLower = search.toLowerCase();
+  //     filtered = filtered.filter(e =>
+  //       e.description.toLowerCase().includes(searchLower) ||
+  //       e.entry_number.toLowerCase().includes(searchLower) ||
+  //       e.created_by_name?.toLowerCase().includes(searchLower)
+  //     );
+  //   }
+    
+  //   if (branchFilter) {
+  //     filtered = filtered.filter(e => e.branch_name === branches.find(b => b.id.toString() === branchFilter)?.name);
+  //   }
+    
+  //   if (statusFilter) {
+  //     filtered = filtered.filter(e => e.status === statusFilter);
+  //   }
+    
+  //   setFilteredEntries(filtered);
+  //   setCurrentPage(1);
+  // }, [search, branchFilter, statusFilter, entries, branches]);
 
   useEffect(() => {
     let filtered = entries;
@@ -569,9 +595,16 @@ const GeneralLedger = () => {
       filtered = filtered.filter(e => e.status === statusFilter);
     }
     
+    if (dateFrom) {
+      filtered = filtered.filter(e => e.entry_date >= dateFrom);
+    }
+    if (dateTo) {
+      filtered = filtered.filter(e => e.entry_date <= dateTo);
+    }
+    
     setFilteredEntries(filtered);
     setCurrentPage(1);
-  }, [search, branchFilter, statusFilter, entries, branches]);
+  }, [search, branchFilter, statusFilter, dateFrom, dateTo, entries, branches]);
 
   const handleReverse = (id: number) => {
     setReverseModal({
@@ -642,13 +675,21 @@ const GeneralLedger = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const clearFilters = () => {
-    setSearch('');
-    setBranchFilter('');
-    setStatusFilter('');
-  };
+  // const clearFilters = () => {
+  //   setSearch('');
+  //   setBranchFilter('');
+  //   setStatusFilter('');
+  // };
 
-  const hasActiveFilters = search || branchFilter || statusFilter;
+  const clearFilters = () => {
+  setSearch('');
+  setBranchFilter('');
+  setStatusFilter('');
+  setDateFrom('');
+  setDateTo('');
+};
+
+  const hasActiveFilters = branchFilter || statusFilter || dateFrom || dateTo;
 
   return (
     <Layout>
@@ -743,6 +784,16 @@ const GeneralLedger = () => {
                 <option value="reversed">Reversed</option>
               </select>
             </div>
+            <div>
+  <label className="block text-xs font-medium text-gray-500 mb-1">From Date</label>
+  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} 
+    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+</div>
+<div>
+  <label className="block text-xs font-medium text-gray-500 mb-1">To Date</label>
+  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} 
+    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+</div>
             <div className="flex items-end">
               {hasActiveFilters && (
                 <button
@@ -756,6 +807,7 @@ const GeneralLedger = () => {
           </div>
         )}
       </div>
+
 
       {loading ? (
         <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
@@ -792,7 +844,7 @@ const GeneralLedger = () => {
       ) : (
         <>
           {/* Desktop Table View */}
-          <div className="hidden lg:block bg-white rounded-xl shadow-sm overflow-hidden">
+          {/* <div className="hidden lg:block bg-white rounded-xl shadow-sm overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
@@ -840,10 +892,61 @@ const GeneralLedger = () => {
                 ))}
               </tbody>
             </table>
-          </div>
-
+          </div> */}
+<div className="hidden lg:block bg-white rounded-xl shadow-sm overflow-hidden">
+  <table className="w-full">
+    <thead className="bg-gray-50 border-b">
+      <tr>
+        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase w-12">ID</th>
+        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Entry #</th>
+        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Description</th>
+        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Period</th>
+        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Created By</th>
+        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-gray-100">
+      {paginated.map((entry) => (
+        <tr key={entry.id} className="hover:bg-gray-50 transition">
+          
+          <td className="px-6 py-4 text-sm text-gray-400">#{entry.id}</td>
+          <td className="px-6 py-4 text-sm font-medium text-blue-900">{entry.entry_number}</td>
+          <td className="px-6 py-4 text-sm text-gray-600">
+            {new Date(entry.entry_date).toLocaleDateString()}
+          </td>
+          <td className="px-6 py-4 text-sm text-gray-800 font-medium">{entry.description}</td>
+          <td className="px-6 py-4 text-sm text-gray-600">{entry.period}</td>
+          <td className="px-6 py-4">
+            <span className={`px-3 py-1 text-xs rounded-full font-medium ${getStatusBadge(entry.status)}`}>
+              {entry.status}
+            </span>
+          </td>
+          <td className="px-6 py-4 text-sm text-gray-600">{entry.created_by_name}</td>
+          <td className="px-6 py-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => fetchEntryDetails(entry.id)}
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                View
+              </button>
+              <button 
+                onClick={() => handleReverse(entry.id)} 
+                className="text-orange-600 hover:text-orange-800 text-sm font-medium"
+              >
+                ↩️ Reverse
+              </button>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
           {/* Mobile Card View */}
-          <div className="lg:hidden space-y-3">
+          {/* <div className="lg:hidden space-y-3">
             {paginated.map((entry) => (
               <div
                 key={entry.id}
@@ -905,8 +1008,71 @@ const GeneralLedger = () => {
                 </div>
               </div>
             ))}
+          </div> */}
+<div className="lg:hidden space-y-3">
+  {paginated.map((entry) => (
+    <div
+      key={entry.id}
+      className="bg-white rounded-xl shadow-sm overflow-hidden"
+    >
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs text-gray-400">#{entry.id}</span>
+              <span className="text-sm font-bold text-blue-900">{entry.entry_number}</span>
+              <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${getStatusBadge(entry.status)}`}>
+                {entry.status}
+              </span>
+            </div>
+            <p className="text-sm text-gray-800 font-medium truncate">{entry.description}</p>
           </div>
+          <button
+            onClick={() => fetchEntryDetails(entry.id)}
+            className="ml-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium 
+                     hover:bg-blue-100 transition-colors flex-shrink-0"
+          >
+            View
+          </button>
+        </div>
 
+        <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
+          <div>
+            <span className="block text-gray-400">Date</span>
+            <span className="font-medium text-gray-700">
+              {new Date(entry.entry_date).toLocaleDateString()}
+            </span>
+          </div>
+          <div>
+            <span className="block text-gray-400">Period</span>
+            <span className="font-medium text-gray-700">{entry.period}</span>
+          </div>
+          <div>
+            <span className="block text-gray-400">Created By</span>
+            <span className="font-medium text-gray-700 truncate block">{entry.created_by_name}</span>
+          </div>
+        </div>
+
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={() => fetchEntryDetails(entry.id)}
+            className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium 
+                     hover:bg-blue-100 transition-colors"
+          >
+            📋 View Details
+          </button>
+          <button 
+            onClick={() => handleReverse(entry.id)} 
+            className="flex-1 px-3 py-2 bg-orange-50 text-orange-600 rounded-lg text-xs font-medium 
+                     hover:bg-orange-100 transition-colors"
+          >
+            ↩️ Reverse
+          </button>
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="mt-4 bg-white rounded-xl shadow-sm px-4 lg:px-6 py-3">

@@ -23,6 +23,8 @@ const Invoices = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'posted' | 'paid' | 'overdue'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+const [dateFrom, setDateFrom] = useState('');
+const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     fetchInvoices();
@@ -59,17 +61,32 @@ const Invoices = () => {
     return status !== 'paid' && new Date(dueDate) < new Date();
   };
 
+  // const filteredInvoices = invoices.filter(inv => {
+  //   const matchesStatus = filterStatus === 'all' || 
+  //     (filterStatus === 'overdue' ? isOverdue(inv.due_date, inv.status) : inv.status === filterStatus);
+    
+  //   const matchesSearch = !searchTerm || 
+  //     inv.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     inv.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     inv.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+  //   return matchesStatus && matchesSearch;
+  // });
+
   const filteredInvoices = invoices.filter(inv => {
-    const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'overdue' ? isOverdue(inv.due_date, inv.status) : inv.status === filterStatus);
-    
-    const matchesSearch = !searchTerm || 
-      inv.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesStatus && matchesSearch;
-  });
+  const matchesStatus = filterStatus === 'all' || 
+    (filterStatus === 'overdue' ? isOverdue(inv.due_date, inv.status) : inv.status === filterStatus);
+  
+  const matchesSearch = !searchTerm || 
+    inv.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    inv.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    inv.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
+  const matchesDateFrom = !dateFrom || inv.invoice_date >= dateFrom;
+  const matchesDateTo = !dateTo || inv.invoice_date <= dateTo;
+  
+  return matchesStatus && matchesSearch && matchesDateFrom && matchesDateTo;
+});
 
   const postedCount = invoices.filter(i => i.status === 'posted').length;
   const paidCount = invoices.filter(i => i.status === 'paid').length;
@@ -119,6 +136,16 @@ const Invoices = () => {
           />
         </div>
       </div>
+      <div className="flex gap-2 mt-2 mb-4">
+  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} 
+    className="px-3 py-2 border border-gray-300 rounded-xl text-sm" placeholder="From" />
+  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} 
+    className="px-3 py-2 border border-gray-300 rounded-xl text-sm" placeholder="To" />
+  {(dateFrom || dateTo) && (
+    <button onClick={() => { setDateFrom(''); setDateTo(''); }} 
+      className="px-3 py-2 text-sm text-blue-600 hover:underline">Clear</button>
+  )}
+</div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-2 lg:gap-4 mb-4">

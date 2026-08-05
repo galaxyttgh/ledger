@@ -5,9 +5,72 @@ import { sodCheck } from '../middleware/sod.js';
 const router = express.Router();
 
 // Submit for approval
+
+
+// router.post('/submit', async (req, res) => {
+//   try {
+//     const { transaction_type, transaction_id } = req.body;
+
+//     // Validate transaction exists
+//     const tableMap: any = {
+//       journal: 'journal_entries',
+//       invoice: 'invoices',
+//       bill: 'bills',
+//     };
+//     const table = tableMap[transaction_type];
+//     if (table) {
+//       const exists = await pool.query(`SELECT id FROM ${table} WHERE id = $1`, [transaction_id]);
+//       if (exists.rows.length === 0) {
+//         res.status(400).json({ error: `${transaction_type} with ID ${transaction_id} not found. Please check the ID and try again.` });
+//         return;
+//       }
+//     }
+
+//     // Check if rule exists
+//     const rule = await pool.query(
+//       'SELECT * FROM approval_rules WHERE transaction_type = $1 AND is_active = true ORDER BY priority',
+//       [transaction_type]
+//     );
+
+//     if (rule.rows.length === 0) {
+//       res.json({ message: 'No approval required', status: 'auto_approved' });
+//       return;
+//     }
+
+//     // Set SLA due date (48 hours from submission)
+//     const slaDueDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+//     const result = await pool.query(
+//       `INSERT INTO approvals (transaction_type, transaction_id, submitted_by, status, sla_due_date)
+//        VALUES ($1, $2, 1, 'pending', $3) RETURNING *`,
+//       [transaction_type, transaction_id, slaDueDate]
+//     );
+
+//     res.status(201).json({ message: 'Submitted for approval', approval: result.rows[0] });
+
+//   } catch (error) {
+//     console.error('Submit error:', error);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
 router.post('/submit', async (req, res) => {
   try {
     const { transaction_type, transaction_id } = req.body;
+
+    // Validate transaction exists
+    const tableMap: any = {
+      journal: 'journal_entries',
+      invoice: 'invoices',
+      bill: 'bills',
+    };
+    const table = tableMap[transaction_type];
+    if (table) {
+      const exists = await pool.query(`SELECT id FROM ${table} WHERE id = $1`, [transaction_id]);
+      if (exists.rows.length === 0) {
+        res.status(400).json({ error: `${transaction_type} with ID ${transaction_id} not found. Please check the ID and try again.` });
+        return;
+      }
+    }
 
     // Check if rule exists
     const rule = await pool.query(
@@ -20,20 +83,14 @@ router.post('/submit', async (req, res) => {
       return;
     }
 
-    // const result = await pool.query(
-    //   `INSERT INTO approvals (transaction_type, transaction_id, submitted_by, status)
-    //    VALUES ($1, $2, 1, 'pending') RETURNING *`,
-    //   [transaction_type, transaction_id]
-    // );
-
     // Set SLA due date (48 hours from submission)
-const slaDueDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const slaDueDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-const result = await pool.query(
-  `INSERT INTO approvals (transaction_type, transaction_id, submitted_by, status, sla_due_date)
-   VALUES ($1, $2, 1, 'pending', $3) RETURNING *`,
-  [transaction_type, transaction_id, slaDueDate]
-);
+    const result = await pool.query(
+      `INSERT INTO approvals (transaction_type, transaction_id, submitted_by, status, sla_due_date)
+       VALUES ($1, $2, 1, 'pending', $3) RETURNING *`,
+      [transaction_type, transaction_id, slaDueDate]
+    );
 
     res.status(201).json({ message: 'Submitted for approval', approval: result.rows[0] });
 
@@ -42,12 +99,22 @@ const result = await pool.query(
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 // Get pending approvals
+
 router.get('/pending', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT a.*, u.full_name as submitted_by_name
+      SELECT a.*, u.full_name as submitted_by_name,
+        CASE 
+          WHEN a.transaction_type = 'journal' THEN (SELECT description FROM journal_entries WHERE id = a.transaction_id)
+          WHEN a.transaction_type = 'invoice' THEN (SELECT description FROM invoices WHERE id = a.transaction_id)
+          WHEN a.transaction_type = 'bill' THEN (SELECT description FROM bills WHERE id = a.transaction_id)
+        END as description,
+        CASE 
+          WHEN a.transaction_type = 'journal' THEN (SELECT COALESCE(SUM(debit), 0) FROM journal_lines WHERE journal_entry_id = a.transaction_id)
+          WHEN a.transaction_type = 'invoice' THEN (SELECT total FROM invoices WHERE id = a.transaction_id)
+          WHEN a.transaction_type = 'bill' THEN (SELECT total FROM bills WHERE id = a.transaction_id)
+        END as amount
       FROM approvals a
       LEFT JOIN users u ON a.submitted_by = u.id
       WHERE a.status = 'pending'
@@ -55,10 +122,10 @@ router.get('/pending', async (req, res) => {
     `);
     res.json(result.rows);
   } catch (error) {
+    console.error('Pending error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 // Approve
 router.post('/:id/approve', sodCheck, async (req, res) => {
   try {

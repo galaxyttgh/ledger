@@ -122,6 +122,8 @@ const Receipts = () => {
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMethod, setFilterMethod] = useState<string>('all');
+const [dateFrom, setDateFrom] = useState('');
+const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     fetchReceipts();
@@ -159,16 +161,30 @@ const Receipts = () => {
     return colors[method] || 'bg-gray-100 text-gray-800';
   };
 
+  // const filteredReceipts = receipts.filter(r => {
+  //   const matchesSearch = !searchTerm || 
+  //     r.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     r.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     r.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+  //   const matchesMethod = filterMethod === 'all' || r.payment_method === filterMethod;
+    
+  //   return matchesSearch && matchesMethod;
+  // });
+
   const filteredReceipts = receipts.filter(r => {
-    const matchesSearch = !searchTerm || 
-      r.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesMethod = filterMethod === 'all' || r.payment_method === filterMethod;
-    
-    return matchesSearch && matchesMethod;
-  });
+  const matchesSearch = !searchTerm || 
+    r.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase());
+  
+  const matchesMethod = filterMethod === 'all' || r.payment_method === filterMethod;
+  
+  const matchesDateFrom = !dateFrom || r.payment_date >= dateFrom;
+  const matchesDateTo = !dateTo || r.payment_date <= dateTo;
+  
+  return matchesSearch && matchesMethod && matchesDateFrom && matchesDateTo;
+});
 
   const totalAmount = filteredReceipts.reduce((sum, r) => sum + Number(r.amount), 0);
   
@@ -236,6 +252,16 @@ const Receipts = () => {
         </div>
       </div>
 
+<div className="flex gap-2 mb-4">
+  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} 
+    className="px-3 py-2 border border-gray-300 rounded-xl text-sm" />
+  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} 
+    className="px-3 py-2 border border-gray-300 rounded-xl text-sm" />
+  {(dateFrom || dateTo) && (
+    <button onClick={() => { setDateFrom(''); setDateTo(''); }} 
+      className="px-3 py-2 text-sm text-blue-600 hover:underline">Clear</button>
+  )}
+</div>
       {/* Total Amount */}
       {filteredReceipts.length > 0 && filterMethod !== 'all' && (
         <div className="bg-white rounded-xl shadow-sm p-3 mb-4 text-center">
