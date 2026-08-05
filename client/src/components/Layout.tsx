@@ -342,6 +342,22 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       { path: '/sod-rules', label: 'SoD Rules' },
     ]},
   ];
+const getVisibleGroups = (): MenuGroup[] => {
+  const role = user?.role || 'admin';
+  
+ const roleAccess: Record<string, string[]> = {
+  admin: ['Accounting', 'Sales (AR)', 'Purchases (AP)', 'Banking', 'Payroll & Assets', 'Reports', 'Approvals', 'Controls'],
+  accountant: ['Accounting', 'Sales (AR)', 'Purchases (AP)', 'Banking', 'Payroll & Assets', 'Reports', 'Approvals'],
+  hr_payroll: ['Payroll & Assets'],
+  manager: ['Reports', 'Approvals'],
+  auditor: ['Accounting', 'Sales (AR)', 'Purchases (AP)', 'Banking', 'Payroll & Assets', 'Reports', 'Approvals', 'Controls'],
+};
+
+  const allowedGroups = roleAccess[role] || roleAccess.admin;
+  return menuGroups.filter(g => allowedGroups.includes(g.label));
+};
+
+const visibleGroups = getVisibleGroups();
 
   const bottomNavItems = [
     { path: '/dashboard', icon: '📊', label: 'Home' },
@@ -441,7 +457,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   <span className="text-base">📊</span>
   <span className="font-medium">Dashboard</span>
 </NavLink>
-        {menuGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.label} className="group">
             <button 
               onClick={() => toggleGroup(group.label)}
@@ -619,7 +635,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   <span className="text-lg">📊</span>
   <span className="text-sm font-semibold">Dashboard</span>
 </NavLink>
-                    {menuGroups.map((group) => (
+                    {visibleGroups.map((group) => (
+                      
                       <div key={group.label}>
                         <button
                           onClick={() => toggleMobileGroup(group.label)}
@@ -678,6 +695,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                         </AnimatePresence>
                       </div>
                     ))}
+                    
                   </div>
                 </nav>
 

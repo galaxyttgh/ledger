@@ -118,6 +118,8 @@ const Bills = () => {
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid' | 'overdue'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     fetchBills();
@@ -154,17 +156,32 @@ const Bills = () => {
     return status !== 'paid' && new Date(dueDate) < new Date();
   };
 
+  // const filteredBills = bills.filter(bill => {
+  //   const matchesStatus = filterStatus === 'all' || 
+  //     (filterStatus === 'overdue' ? isOverdue(bill.due_date, bill.status) : bill.status === filterStatus);
+    
+  //   const matchesSearch = !searchTerm || 
+  //     bill.bill_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     bill.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     bill.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+  //   return matchesStatus && matchesSearch;
+  // });
+
   const filteredBills = bills.filter(bill => {
-    const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'overdue' ? isOverdue(bill.due_date, bill.status) : bill.status === filterStatus);
-    
-    const matchesSearch = !searchTerm || 
-      bill.bill_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bill.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bill.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesStatus && matchesSearch;
-  });
+  const matchesStatus = filterStatus === 'all' || 
+    (filterStatus === 'overdue' ? isOverdue(bill.due_date, bill.status) : bill.status === filterStatus);
+  
+  const matchesSearch = !searchTerm || 
+    bill.bill_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    bill.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    bill.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
+  const matchesDateFrom = !dateFrom || bill.bill_date >= dateFrom;
+  const matchesDateTo = !dateTo || bill.bill_date <= dateTo;
+  
+  return matchesStatus && matchesSearch && matchesDateFrom && matchesDateTo;
+});
 
   const pendingCount = bills.filter(b => b.status === 'pending').length;
   const overdueCount = bills.filter(b => isOverdue(b.due_date, b.status)).length;
@@ -215,6 +232,16 @@ const Bills = () => {
         </div>
       </div>
 
+<div className="flex gap-2 mt-2 mb-4">
+  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} 
+    className="px-3 py-2 border border-gray-300 rounded-xl text-sm" />
+  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} 
+    className="px-3 py-2 border border-gray-300 rounded-xl text-sm" />
+  {(dateFrom || dateTo) && (
+    <button onClick={() => { setDateFrom(''); setDateTo(''); }} 
+      className="px-3 py-2 text-sm text-blue-600 hover:underline">Clear</button>
+  )}
+</div>
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-2 lg:gap-4 mb-4">
         <button

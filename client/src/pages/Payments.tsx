@@ -121,6 +121,8 @@ const Payments = () => {
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMethod, setFilterMethod] = useState<string>('all');
+const [dateFrom, setDateFrom] = useState('');
+const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     fetchPayments();
@@ -158,16 +160,30 @@ const Payments = () => {
     return colors[method] || 'bg-gray-100 text-gray-800';
   };
 
+  // const filteredPayments = payments.filter(p => {
+  //   const matchesSearch = !searchTerm || 
+  //     p.payment_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     p.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     p.bill_number?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+  //   const matchesMethod = filterMethod === 'all' || p.payment_method === filterMethod;
+    
+  //   return matchesSearch && matchesMethod;
+  // });
+
   const filteredPayments = payments.filter(p => {
-    const matchesSearch = !searchTerm || 
-      p.payment_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.bill_number?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesMethod = filterMethod === 'all' || p.payment_method === filterMethod;
-    
-    return matchesSearch && matchesMethod;
-  });
+  const matchesSearch = !searchTerm || 
+    p.payment_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.bill_number?.toLowerCase().includes(searchTerm.toLowerCase());
+  
+  const matchesMethod = filterMethod === 'all' || p.payment_method === filterMethod;
+  
+  const matchesDateFrom = !dateFrom || p.payment_date >= dateFrom;
+  const matchesDateTo = !dateTo || p.payment_date <= dateTo;
+  
+  return matchesSearch && matchesMethod && matchesDateFrom && matchesDateTo;
+});
 
   const totalAmount = filteredPayments.reduce((sum, p) => sum + Number(p.amount), 0);
   
@@ -243,6 +259,17 @@ const Payments = () => {
           ))}
         </div>
       </div>
+
+<div className="flex gap-2 mb-4">
+  <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} 
+    className="px-3 py-2 border border-gray-300 rounded-xl text-sm" />
+  <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} 
+    className="px-3 py-2 border border-gray-300 rounded-xl text-sm" />
+  {(dateFrom || dateTo) && (
+    <button onClick={() => { setDateFrom(''); setDateTo(''); }} 
+      className="px-3 py-2 text-sm text-blue-600 hover:underline">Clear</button>
+  )}
+</div>
 
       {/* Total Amount */}
       {filteredPayments.length > 0 && filterMethod !== 'all' && (
