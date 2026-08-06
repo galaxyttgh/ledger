@@ -127,13 +127,22 @@ router.get('/pending', async (req, res) => {
   }
 });
 // Approve
+// router.post('/:id/approve', sodCheck, async (req, res) => {
+//   try {
+//     const { id } = req.params;
+    
+//     await pool.query(
+//       `UPDATE approvals SET status = 'approved', approved_by = 1, approved_at = NOW() WHERE id = $1`,
+//       [id]
+//     );
 router.post('/:id/approve', sodCheck, async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = (req as any).userId || 1;
     
     await pool.query(
-      `UPDATE approvals SET status = 'approved', approved_by = 1, approved_at = NOW() WHERE id = $1`,
-      [id]
+      `UPDATE approvals SET status = 'approved', approved_by = $1, approved_at = NOW() WHERE id = $2`,
+      [userId, id]
     );
 
     // Update the transaction status
@@ -157,14 +166,25 @@ router.post('/:id/approve', sodCheck, async (req, res) => {
 });
 
 // Reject
+// router.post('/:id/reject', async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { comments } = req.body;
+
+//     await pool.query(
+//       `UPDATE approvals SET status = 'rejected', approved_by = 1, approved_at = NOW(), comments = $1 WHERE id = $2`,
+//       [comments || 'Rejected', id]
+//     );
+
 router.post('/:id/reject', async (req, res) => {
   try {
     const { id } = req.params;
     const { comments } = req.body;
+    const userId = (req as any).userId || 1;
 
     await pool.query(
-      `UPDATE approvals SET status = 'rejected', approved_by = 1, approved_at = NOW(), comments = $1 WHERE id = $2`,
-      [comments || 'Rejected', id]
+      `UPDATE approvals SET status = 'rejected', approved_by = $1, approved_at = NOW(), comments = $2 WHERE id = $3`,
+      [userId, comments || 'Rejected', id]
     );
 
     res.json({ message: 'Rejected' });
