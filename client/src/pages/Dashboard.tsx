@@ -538,7 +538,7 @@ const fetchTrends = async () => {
           {[
             { label: 'Total Accounts', value: '31' },
             { label: 'Role', value: user?.role || 'User' },
-            { label: 'Modules Active', value: '10 of 19' },
+            { label: 'Modules Active', value: '16 of 19' },
             { label: 'Audit Trail', value: 'Active' },
           ].map((item) => (
             <div key={item.label} className="text-center p-3 lg:p-4 bg-gray-50 rounded-lg">

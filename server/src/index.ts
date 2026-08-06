@@ -897,6 +897,7 @@ app.get('/api/dashboard/trends', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Network access: http://10.10.10.43:${PORT}`);
 });

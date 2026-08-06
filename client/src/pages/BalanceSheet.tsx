@@ -280,7 +280,7 @@ const BalanceSheet = () => {
                   <p className="text-xs text-gray-500">{item.code}</p>
                 </div>
                 <span className="text-sm font-semibold text-gray-900 flex-shrink-0">
-                  ₦{item.amount.toLocaleString()}
+               ₦{Math.abs(item.amount).toLocaleString()}
                 </span>
               </div>
             ))
