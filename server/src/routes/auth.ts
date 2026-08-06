@@ -200,4 +200,92 @@ router.post('/reset-password', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// Change Password
+router.post('/change-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = (req as any).userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const user = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (user.rows.length === 0) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const validPassword = await bcrypt.compare(currentPassword, user.rows[0].password);
+    if (!validPassword) {
+      res.status(400).json({ error: 'Current password is incorrect' });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, userId]);
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// Get all users (Admin only)
+router.get('/users', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, email, full_name, role, is_active, created_at FROM users ORDER BY created_at DESC'
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update user role/status (Admin only)
+// router.put('/users/:id', async (req, res) => {
+//   try {
+//     const { role, is_active } = req.body;
+//     await pool.query(
+//       'UPDATE users SET role = $1, is_active = $2 WHERE id = $3',
+//       [role, is_active, req.params.id]
+//     );
+//     res.json({ message: 'User updated' });
+//   } catch (error) {
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
+
+router.put('/users/:id', async (req, res) => {
+  try {
+    const { role, is_active, full_name, email } = req.body;
+    await pool.query(
+      'UPDATE users SET role = $1, is_active = $2, full_name = COALESCE($3, full_name), email = COALESCE($4, email) WHERE id = $5',
+      [role, is_active, full_name, email, req.params.id]
+    );
+    res.json({ message: 'User updated' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+// Admin reset user password
+router.post('/users/:id/reset-password', async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, req.params.id]);
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 export default router;

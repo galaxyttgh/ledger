@@ -340,6 +340,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       { path: '/audit-trail', label: 'Audit Trail' },
       { path: '/tax-rates', label: 'Tax Rates' },
       { path: '/sod-rules', label: 'SoD Rules' },
+      { path: '/users', label: 'User Management' },
     ]},
   ];
 const getVisibleGroups = (): MenuGroup[] => {
@@ -513,6 +514,9 @@ const visibleGroups = getVisibleGroups();
             </AnimatePresence>
           </div>
         ))}
+        <NavLink to="/change-password" className="w-full text-left px-4 py-2 rounded-lg text-blue-200 hover:bg-blue-800 hover:text-white transition text-sm block mb-1">
+  🔑 Change Password
+</NavLink>
       </nav>
 
       {/* User Section */}

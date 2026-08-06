@@ -110,6 +110,8 @@ import ThreeWayMatch from './pages/ThreeWayMatch';
 import Delegations from './pages/Delegations';
 import ConsolidatedReport from './pages/ConsolidatedReport';
 import SoDRules from './pages/SoDRules';
+import ChangePassword from './pages/ChangePassword';
+import UserManagement from './pages/UserManagement';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -212,6 +214,8 @@ const AppRoutes = () => {
 <Route path="/delegations" element={<ProtectedRoute><Delegations /></ProtectedRoute>} />
 <Route path="/consolidated-report" element={<ProtectedRoute><ConsolidatedReport /></ProtectedRoute>} />
 <Route path="/sod-rules" element={<ProtectedRoute><SoDRules /></ProtectedRoute>} />
+<Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
+<Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
