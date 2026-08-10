@@ -141,15 +141,12 @@ router.post('/forgot-password', async (req, res) => {
       [user.rows[0].id, token, expiresAt]
     );
 
-    // In production, send email here. For now, return the token.
-    console.log(`Password reset token for ${email}: ${token}`);
-    
-    res.json({ 
-      message: 'If that email exists, a reset link has been sent.',
-      // Only in development:
-      token: token,
-      resetUrl: `http://localhost:5173/reset-password?token=${token}`
-    });
+  // In production, send this via email. Token is never returned to client.
+console.log(`Password reset requested for ${email}`);
+
+res.json({ 
+  message: 'If that email exists, a reset link has been sent.'
+});
 
   } catch (error) {
     console.error('Forgot password error:', error);
