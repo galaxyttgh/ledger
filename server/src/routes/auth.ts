@@ -5,6 +5,14 @@ import pool from '../db/pool.js';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
 
+
+const adminOnly = (req: any, res: any, next: any) => {
+  if (req.userRole !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // 10 attempts
@@ -20,7 +28,7 @@ const registerLimiter = rateLimit({
 const router = express.Router();
 
 // Register
-router.post('/register', registerLimiter, async (req, res) => {
+router.post('/register', registerLimiter, adminOnly, async (req, res) => {
    
   try {
     const { email, password, full_name, role } = req.body;
@@ -235,7 +243,7 @@ router.post('/change-password', async (req, res) => {
 
 
 // Get all users (Admin only)
-router.get('/users', async (req, res) => {
+router.get('/users', adminOnly, async (req, res) => {
   try {
     const result = await pool.query(
       'SELECT id, email, full_name, role, is_active, created_at FROM users ORDER BY created_at DESC'
@@ -246,21 +254,9 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// Update user role/status (Admin only)
-// router.put('/users/:id', async (req, res) => {
-//   try {
-//     const { role, is_active } = req.body;
-//     await pool.query(
-//       'UPDATE users SET role = $1, is_active = $2 WHERE id = $3',
-//       [role, is_active, req.params.id]
-//     );
-//     res.json({ message: 'User updated' });
-//   } catch (error) {
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
 
-router.put('/users/:id', async (req, res) => {
+
+router.put('/users/:id', adminOnly, async (req, res) => {
   try {
     const { role, is_active, full_name, email } = req.body;
     await pool.query(
@@ -272,8 +268,8 @@ router.put('/users/:id', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-// Admin reset user password
-router.post('/users/:id/reset-password', async (req, res) => {
+
+router.post('/users/:id/reset-password', adminOnly, async (req, res) => {
   try {
     const { newPassword } = req.body;
     const salt = await bcrypt.genSalt(10);
