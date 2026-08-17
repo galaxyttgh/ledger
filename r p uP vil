@@ -1,0 +1,11 @@
+[33mcommit 818ccc51658e9b41824a366f4e3d43451f3756b3[m
+Author: Uthman Dayyabu <affan61550@gmail.com>
+Date:   Tue Jul 28 14:50:07 2026 +0100
+
+    Hardening: Zod validation on all create endpoints, user ID from JWT, password reset flow, automated backups script, DB indexes
+
+[33mcommit 7cffbe6f6c9d11cc4381c93004e6faa355066dd7[m
+Author: Uthman Dayyabu <affan61550@gmail.com>
+Date:   Tue Jul 28 14:50:07 2026 +0100
+
+    Hardening: Zod validation on all create endpoints, user ID from JWT, password reset flow, automated backups script, DB indexes

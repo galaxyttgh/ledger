@@ -39,7 +39,7 @@ export const authMiddleware = (req: any, res: any, next: any) => {
   }
   
   try {
-    const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'default_secret');
+    const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string);
     req.userId = decoded.id;
     req.userRole = decoded.role;
     next();

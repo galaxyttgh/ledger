@@ -28,7 +28,7 @@ const registerLimiter = rateLimit({
 const router = express.Router();
 
 // Register
-router.post('/register', registerLimiter, adminOnly, async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
    
   try {
     const { email, password, full_name, role } = req.body;
@@ -98,7 +98,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     // Generate token
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'default_secret',
+      process.env.JWT_SECRET as string,
       { expiresIn: '24h' }
     );
 
