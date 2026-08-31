@@ -293,6 +293,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       { path: '/general-ledger', label: 'General Ledger' },
       { path: '/accounts', label: 'Chart of Accounts' },
       { path: '/period-close', label: 'Period Close' },
+      { path: '/inventory', label: 'Inventory' },
     ]},
     { label: 'Sales (AR)', icon: '👥', items: [
       { path: '/customers', label: 'Customers' },

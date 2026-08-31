@@ -25,8 +25,15 @@ import quotationRoutes from './routes/quotations.js';
 import collectionRoutes from './routes/collections.js';
 import poRoutes from './routes/purchaseOrders.js';
 import delegationRoutes from './routes/delegations.js';
+import inventoryRoutes from './routes/inventory.js';
 
 dotenv.config();
+
+
+if (!process.env.JWT_SECRET) {
+  console.error('JWT_SECRET is required. Set it in .env file.');
+  process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -66,6 +73,8 @@ app.use('/api/quotations', quotationRoutes);
 app.use('/api/collections', collectionRoutes);
 app.use('/api/purchase-orders', poRoutes);
 app.use('/api/delegations', delegationRoutes);
+app.use('/api/inventory', inventoryRoutes);
+
 // Test route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PrimeLedger API is running' });

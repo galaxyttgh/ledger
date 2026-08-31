@@ -7,3 +7,5 @@ uploads/
 backup.js
 
 .env.production
+
+backups/
