@@ -1,202 +1,7 @@
-// import express from 'express';
-// import pool from '../db/pool.js';
-
-// const router = express.Router();
-
-// // Get all employees
-// router.get('/employees', async (req, res) => {
-//   try {
-//     const result = await pool.query('SELECT * FROM employees WHERE is_active = true ORDER BY last_name');
-//     res.json(result.rows);
-//   } catch (error) {
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
-
-// // Get payroll runs
-// router.get('/runs', async (req, res) => {
-//   try {
-//     const result = await pool.query(`
-//       SELECT pr.*, u.full_name as created_by_name
-//       FROM payroll_runs pr
-//       LEFT JOIN users u ON pr.created_by = u.id
-//       ORDER BY pr.created_at DESC
-//     `);
-//     res.json(result.rows);
-//   } catch (error) {
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
-
-// // Run payroll
-// router.post('/run', async (req, res) => {
-//   const client = await pool.connect();
-//   try {
-//     const { period } = req.body;
-//     const userId = (req as any).userId || 1;
-
-//     await client.query('BEGIN');
-
-//     // Get all active employees
-//     const employees = await client.query('SELECT * FROM employees WHERE is_active = true');
-
-//     // Create payroll run
-//     const run = await client.query(
-//       `INSERT INTO payroll_runs (period, run_date, status, created_by) VALUES ($1, CURRENT_DATE, 'draft', $2) RETURNING *`,
-//       [period, userId]
-//     );
-
-//     let totalGross = 0;
-//     let totalDeductions = 0;
-//     let totalNet = 0;
-
-//     for (const emp of employees.rows) {
-//       const allowances = parseFloat(emp.housing_allowance) + parseFloat(emp.transport_allowance) + parseFloat(emp.other_allowance);
-//       const grossPay = parseFloat(emp.basic_salary) + allowances;
-
-//       // Simple PAYE: 7% if above 300k annual
-//       const monthlyThreshold = 25000;
-//       const taxablePay = Math.max(0, grossPay - monthlyThreshold);
-//       const payeTax = taxablePay * 0.07;
-
-//       // Pension: employee contribution
-//       const pensionEmployee = parseFloat(emp.basic_salary) * (parseFloat(emp.pension_rate) / 100);
-
-//       const totalDeductionsForEmp = payeTax + pensionEmployee;
-//       const netPay = grossPay - totalDeductionsForEmp;
-
-//       totalGross += grossPay;
-//       totalDeductions += totalDeductionsForEmp;
-//       totalNet += netPay;
-
-//       await client.query(
-//         `INSERT INTO payslips (payroll_run_id, employee_id, basic_salary, allowances, gross_pay, paye_tax, pension_employee, total_deductions, net_pay)
-//          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-//         [run.rows[0].id, emp.id, emp.basic_salary, allowances, grossPay, payeTax, pensionEmployee, totalDeductionsForEmp, netPay]
-//       );
-//     }
-
-//     // Update run totals
-//     await client.query(
-//       'UPDATE payroll_runs SET total_gross = $1, total_deductions = $2, total_net = $3, status = $4 WHERE id = $5',
-//       [totalGross, totalDeductions, totalNet, 'posted', run.rows[0].id]
-//     );
-
-//     // Create journal entry
-//     const entryNumber = `PAY-${Date.now().toString().slice(-8)}`;
-//     const journal = await client.query(
-//       `INSERT INTO journal_entries (entry_number, description, entry_date, period, status, created_by)
-//        VALUES ($1, $2, CURRENT_DATE, $3, 'posted', $4) RETURNING id`,
-//       [entryNumber, `Payroll for ${period}`, period, userId]
-//     );
-
-//     // Dr Salaries (Gross Pay)
-//     await client.query(
-//       'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, 24, $2, $3, 0)',
-//       [journal.rows[0].id, 'Salary Expense', totalGross]
-//     );
-
-//     // Cr Bank (Net Pay)
-//     await client.query(
-//       'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, 4, $2, 0, $3)',
-//       [journal.rows[0].id, 'Bank - Net Pay', totalNet]
-//     );
-
-//     // Cr PAYE Payable
-//     const totalPaye = employees.rows.reduce((sum, emp) => {
-//       const gross = parseFloat(emp.basic_salary) + parseFloat(emp.housing_allowance) + parseFloat(emp.transport_allowance) + parseFloat(emp.other_allowance);
-//       return sum + Math.max(0, gross - 25000) * 0.07;
-//     }, 0);
-
-//     if (totalPaye > 0) {
-//       await client.query(
-//         'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, 13, $2, 0, $3)',
-//         [journal.rows[0].id, 'PAYE Payable', totalPaye]
-//       );
-//     }
-
-//     // Cr Pension Payable
-//     const totalPension = employees.rows.reduce((sum, emp) => sum + parseFloat(emp.basic_salary) * 0.08, 0);
-//     if (totalPension > 0) {
-//       await client.query(
-//         'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, 15, $2, 0, $3)',
-//         [journal.rows[0].id, 'Pension Payable', totalPension]
-//       );
-//     }
-
-//     // Link journal to payroll run
-//     await client.query('UPDATE payroll_runs SET journal_entry_id = $1 WHERE id = $2', [journal.rows[0].id, run.rows[0].id]);
-
-//     await client.query('COMMIT');
-
-//     // Get complete run with payslips
-//     const payslips = await client.query(`
-//       SELECT p.*, e.first_name, e.last_name, e.code as employee_code
-//       FROM payslips p
-//       JOIN employees e ON p.employee_id = e.id
-//       WHERE p.payroll_run_id = $1
-//     `, [run.rows[0].id]);
-
-//     res.status(201).json({
-//       run: { ...run.rows[0], total_gross: totalGross, total_deductions: totalDeductions, total_net: totalNet },
-//       payslips: payslips.rows
-//     });
-
-//   } catch (error) {
-//     await client.query('ROLLBACK');
-//     console.error('Payroll run error:', error);
-//     res.status(500).json({ error: 'Server error' });
-//   } finally {
-//     client.release();
-//   }
-// });
-
-// // Create employee
-// router.post('/employees', async (req, res) => {
-//   try {
-//     const { first_name, last_name, email, phone, basic_salary, housing_allowance, transport_allowance, other_allowance } = req.body;
-//     const code = `EMP${Date.now().toString().slice(-6)}`;
-
-//     const result = await pool.query(
-//       `INSERT INTO employees (code, first_name, last_name, email, phone, basic_salary, housing_allowance, transport_allowance, other_allowance)
-//        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-//       [code, first_name, last_name, email, phone, basic_salary, housing_allowance, transport_allowance, other_allowance]
-//     );
-
-//     res.status(201).json(result.rows[0]);
-//   } catch (error) {
-//     console.error('Create employee error:', error);
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
-
-// router.delete('/employees/:id', async (req, res) => {
-//   try {
-//     await pool.query('DELETE FROM employees WHERE id = $1', [req.params.id]);
-//     res.json({ message: 'Employee deleted' });
-//   } catch (error) {
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
-
-// // Update employee
-// router.put('/employees/:id', async (req, res) => {
-//   try {
-//     const { first_name, last_name, email, phone, basic_salary, housing_allowance, transport_allowance, other_allowance } = req.body;
-//     const result = await pool.query(
-//       `UPDATE employees SET first_name=$1, last_name=$2, email=$3, phone=$4, basic_salary=$5, housing_allowance=$6, transport_allowance=$7, other_allowance=$8 WHERE id=$9 RETURNING *`,
-//       [first_name, last_name, email, phone, basic_salary, housing_allowance, transport_allowance, other_allowance, req.params.id]
-//     );
-//     res.json(result.rows[0]);
-//   } catch (error) {
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
-// export default router;
-
 import express from 'express';
 import pool from '../db/pool.js';
 import { periodGuard } from '../middleware/period.js';
+import { sendEmail } from '../services/email.js';
 
 const router = express.Router();
 
@@ -231,7 +36,7 @@ const calculatePAYE = (annualTaxableIncome: number): number => {
   return tax;
 };
 
-const calculatePayroll = (employee: any) => {
+const calculatePayroll = async (employee: any) => {
   const basicSalary = parseFloat(employee.basic_salary) || 0;
   const housingAllowance = parseFloat(employee.housing_allowance) || 0;
   const transportAllowance = parseFloat(employee.transport_allowance) || 0;
@@ -243,18 +48,33 @@ const calculatePayroll = (employee: any) => {
   // Annualize for tax calculation
   const annualGross = grossPay * 12;
 
+  // Fetch rates from tax_codes
+  const ratesResult = await pool.query(`
+    SELECT code, rate FROM tax_codes 
+    WHERE code IN ('PENSION-EE', 'PENSION-ER', 'NHIS', 'JICHMA', 'NHF') 
+    AND is_active = true
+  `);
+  
+  const rates: any = {};
+  ratesResult.rows.forEach((r: any) => {
+    rates[r.code] = parseFloat(r.rate);
+  });
+
+  const pensionEmployeeRate = (rates['PENSION-EE'] || 8) / 100;
+  const pensionEmployerRate = (rates['PENSION-ER'] || 10) / 100;
+  const nhisRate = (rates['NHIS'] || 5) / 100;
+  const jichmaRate = (rates['JICHMA'] || 1) / 100;
+  const nhfRate = (rates['NHF'] || 2.5) / 100;
+
   // Personal Relief: ₦200,000 + 20% of gross income
   const personalRelief = 200000 + (annualGross * 0.2);
 
-  // Pension (Employee): 8% of basic salary
-  const pensionEmployee = basicSalary * 0.08;
-  const pensionEmployer = basicSalary * 0.10;
-
-  // NHF: 2.25% of basic salary
-  const nhf = basicSalary * 0.0225;
-
-  // NSITF (Employer): 1% of basic salary
-  const nsitf = basicSalary * 0.01;
+  // Deductions
+  const pensionEmployee = basicSalary * pensionEmployeeRate;
+  const pensionEmployer = basicSalary * pensionEmployerRate;
+  const nhis = basicSalary * nhisRate;
+  const jichma = basicSalary * jichmaRate;
+  const nhf = basicSalary * nhfRate;
 
   // Taxable Income (Annual)
   const taxableIncome = annualGross - personalRelief - (pensionEmployee * 12) - (nhf * 12);
@@ -264,7 +84,7 @@ const calculatePayroll = (employee: any) => {
   const monthlyPAYE = annualPAYE / 12;
 
   // Total Deductions
-  const totalDeductions = monthlyPAYE + pensionEmployee + nhf;
+  const totalDeductions = monthlyPAYE + pensionEmployee + nhis + jichma + nhf;
 
   // Net Pay
   const netPay = grossPay - totalDeductions;
@@ -279,8 +99,9 @@ const calculatePayroll = (employee: any) => {
     personalRelief,
     pensionEmployee,
     pensionEmployer,
+    nhis,
+    jichma,
     nhf,
-    nsitf,
     taxableIncome: taxableIncome / 12,
     monthlyPAYE,
     annualPAYE,
@@ -370,7 +191,17 @@ router.post('/run', periodGuard, async (req, res) => {
     const userId = (req as any).userId || 1;
 
     await client.query('BEGIN');
+ const existingRun = await client.query(
+      "SELECT id FROM payroll_runs WHERE period = $1 AND status = 'posted'",
+      [period]
+    );
 
+    if (existingRun.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: `Payroll for ${period} has already been run. Delete the existing run first or use a different period.` 
+      });
+    }
     // Get all active employees
     const employees = await client.query('SELECT * FROM employees WHERE is_active = true');
 
@@ -397,30 +228,22 @@ router.post('/run', periodGuard, async (req, res) => {
 
     for (const emp of employees.rows) {
       // Calculate payroll
-      const calc = calculatePayroll(emp);
+      const calc = await calculatePayroll(emp);
 
       // Insert payslip
-      await client.query(
-        `INSERT INTO payslips (
-          payroll_run_id, employee_id, 
-          basic_salary, housing_allowance, transport_allowance, other_allowance,
-          gross_pay, paye_tax, pension_employee, nhf, total_deductions, net_pay
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-        [
-          runId,
-          emp.id,
-          calc.basicSalary,
-          calc.housingAllowance,
-          calc.transportAllowance,
-          calc.otherAllowance,
-          calc.grossPay,
-          calc.monthlyPAYE,
-          calc.pensionEmployee,
-          calc.nhf,
-          calc.totalDeductions,
-          calc.netPay
-        ]
-      );
+    await client.query(
+  `INSERT INTO payslips (
+    payroll_run_id, employee_id, 
+    basic_salary, housing_allowance, transport_allowance, other_allowance,
+    gross_pay, paye_tax, pension_employee, pension_employer, nhf, nhis, jichma, total_deductions, net_pay
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+  [
+    runId, emp.id,
+    calc.basicSalary, calc.housingAllowance, calc.transportAllowance, calc.otherAllowance,
+    calc.grossPay, calc.monthlyPAYE, calc.pensionEmployee, calc.pensionEmployer, calc.nhf, calc.nhis, calc.jichma,
+    calc.totalDeductions, calc.netPay
+  ]
+);
 
       payslipData.push({
         employee: `${emp.first_name} ${emp.last_name}`,
@@ -522,6 +345,58 @@ router.post('/run', periodGuard, async (req, res) => {
 
     await client.query('COMMIT');
 
+    // Send payslip emails to all employees
+try {
+  for (const emp of employees.rows) {
+    if (!emp.email) continue;
+    
+    const payslip = payslipData.find((p: any) => p.employee === `${emp.first_name} ${emp.last_name}`);
+    if (!payslip) continue;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="text-align: center; padding: 20px; background: #1e3a5f; color: white;">
+          <h1 style="margin: 0;">Galaxy ITT</h1>
+          <p style="margin: 5px 0 0 0; opacity: 0.8;">Payslip — ${period}</p>
+        </div>
+        <div style="padding: 30px; background: #f9f9f9;">
+          <p>Dear ${emp.first_name} ${emp.last_name},</p>
+          <p>Your payslip for ${period} is below:</p>
+          
+          <h3 style="color: #1e3a5f; border-bottom: 2px solid #1e3a5f; padding-bottom: 5px;">Earnings</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="padding: 6px;">Basic Salary</td><td style="padding: 6px; text-align: right;">₦${payslip.basicSalary.toLocaleString()}</td></tr>
+            <tr><td style="padding: 6px;">Housing Allowance</td><td style="padding: 6px; text-align: right;">₦${payslip.housingAllowance.toLocaleString()}</td></tr>
+            <tr><td style="padding: 6px;">Transport Allowance</td><td style="padding: 6px; text-align: right;">₦${payslip.transportAllowance.toLocaleString()}</td></tr>
+            <tr style="border-top: 1px solid #ddd;"><td style="padding: 6px;"><strong>Gross Pay</strong></td><td style="padding: 6px; text-align: right;"><strong>₦${payslip.grossPay.toLocaleString()}</strong></td></tr>
+          </table>
+
+          <h3 style="color: #dc2626; border-bottom: 2px solid #dc2626; padding-bottom: 5px; margin-top: 20px;">Deductions</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="padding: 6px;">PAYE Tax</td><td style="padding: 6px; text-align: right;">₦${payslip.monthlyPAYE.toLocaleString()}</td></tr>
+            <tr><td style="padding: 6px;">Pension (8%)</td><td style="padding: 6px; text-align: right;">₦${payslip.pensionEmployee.toLocaleString()}</td></tr>
+            <tr><td style="padding: 6px;">NHF (2.5%)</td><td style="padding: 6px; text-align: right;">₦${payslip.nhf.toLocaleString()}</td></tr>
+            <tr><td style="padding: 6px;">NHIS (5%)</td><td style="padding: 6px; text-align: right;">₦${payslip.nhis.toLocaleString()}</td></tr>
+            <tr><td style="padding: 6px;">Jichma (1%)</td><td style="padding: 6px; text-align: right;">₦${payslip.jichma.toLocaleString()}</td></tr>
+            <tr style="border-top: 1px solid #ddd;"><td style="padding: 6px;"><strong>Total Deductions</strong></td><td style="padding: 6px; text-align: right;"><strong>₦${payslip.totalDeductions.toLocaleString()}</strong></td></tr>
+          </table>
+
+          <div style="margin-top: 20px; padding: 15px; background: #16a34a; color: white; text-align: center; border-radius: 5px;">
+            <p style="margin: 0; font-size: 14px;">NET PAY</p>
+            <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold;">₦${payslip.netPay.toLocaleString()}</p>
+          </div>
+        </div>
+        <div style="text-align: center; padding: 15px; background: #eee; color: #666; font-size: 12px;">
+          © Galaxy ITT — Confidential
+        </div>
+      </div>
+    `;
+    await sendEmail(emp.email, `Payslip ${period} — Galaxy ITT`, html);
+  }
+} catch (emailError) {
+  console.error('Payslip email failed:', emailError);
+}
+
     res.status(201).json({
       message: 'Payroll run completed',
       run_id: runId,
@@ -589,12 +464,13 @@ router.put('/employees/:id', async (req, res) => {
       `UPDATE employees SET 
         first_name = $1, last_name = $2, email = $3, phone = $4,
         basic_salary = $5, housing_allowance = $6, transport_allowance = $7,
-        other_allowance = $8, bank_name = $9, bank_account = $10, is_active = $11,
+        other_allowance = $8, bank_name = $9, bank_account = $10, 
+        is_active = COALESCE($11, is_active),
         updated_at = NOW()
        WHERE id = $12 RETURNING *`,
       [first_name, last_name, email, phone,
        basic_salary, housing_allowance, transport_allowance, other_allowance,
-       bank_name, bank_account, is_active, req.params.id]
+       bank_name, bank_account, is_active || null, req.params.id]
     );
 
     if (result.rows.length === 0) {
@@ -607,7 +483,6 @@ router.put('/employees/:id', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 // Delete employee
 router.delete('/employees/:id', async (req, res) => {
   try {

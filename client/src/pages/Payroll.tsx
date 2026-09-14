@@ -745,62 +745,81 @@ const Payroll = () => {
             </div>
             <div className="overflow-y-auto flex-1">
               <div className="hidden sm:block">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Employee</th>
-                      <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Gross Pay</th>
-                      <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">PAYE</th>
-                      <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Pension</th>
-                      <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Net Pay</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {selectedRun.payslips.map((p) => (
-                      <tr key={p.id}>
-                        <td className="px-6 py-3 font-medium">
-                          {p.first_name} {p.last_name}
-                          <span className="text-gray-400 text-xs ml-1">({p.employee_code})</span>
-                        </td>
-                        <td className="px-6 py-3 text-right">₦{Number(p.gross_pay).toLocaleString()}</td>
-                        <td className="px-6 py-3 text-right text-red-600">₦{Number(p.paye_tax).toLocaleString()}</td>
-                        <td className="px-6 py-3 text-right text-red-600">₦{Number(p.pension_employee).toLocaleString()}</td>
-                        <td className="px-6 py-3 text-right font-bold text-green-600">₦{Number(p.net_pay).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <table className="w-full text-sm">
+  <thead className="bg-gray-50">
+    <tr>
+      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Gross</th>
+      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">PAYE</th>
+      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Pension</th>
+      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">NHF</th>
+      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">NHIS</th>
+      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Jichma</th>
+      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase">Net Pay</th>
+    </tr>
+  </thead>
+  <tbody className="divide-y">
+    {selectedRun.payslips.map((p: any) => (
+      <tr key={p.id}>
+        <td className="px-3 py-3 font-medium">{p.first_name} {p.last_name}</td>
+        <td className="px-3 py-3 text-right">₦{Number(p.gross_pay).toLocaleString()}</td>
+        <td className="px-3 py-3 text-right text-red-600">₦{Number(p.paye_tax).toLocaleString()}</td>
+        <td className="px-3 py-3 text-right text-red-600">₦{Number(p.pension_employee).toLocaleString()}</td>
+        <td className="px-3 py-3 text-right text-red-600">₦{Number(p.nhf || 0).toLocaleString()}</td>
+        <td className="px-3 py-3 text-right text-red-600">₦{Number(p.nhis || 0).toLocaleString()}</td>
+        <td className="px-3 py-3 text-right text-red-600">₦{Number(p.jichma || 0).toLocaleString()}</td>
+        <td className="px-3 py-3 text-right font-bold text-green-600">₦{Number(p.net_pay).toLocaleString()}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
               </div>
 
               {/* Mobile Payslip Cards */}
-              <div className="sm:hidden divide-y divide-gray-100">
-                {selectedRun.payslips.map((p) => (
-                  <div key={p.id} className="p-4">
-                    <h4 className="font-semibold text-gray-800 mb-2">
-                      {p.first_name} {p.last_name}
-                      <span className="text-gray-400 text-xs ml-1">({p.employee_code})</span>
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-xs text-gray-500">Gross Pay</p>
-                        <p className="font-medium">₦{Number(p.gross_pay).toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Net Pay</p>
-                        <p className="font-bold text-green-600">₦{Number(p.net_pay).toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">PAYE Tax</p>
-                        <p className="text-red-600">₦{Number(p.paye_tax).toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Pension</p>
-                        <p className="text-red-600">₦{Number(p.pension_employee).toLocaleString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+           <div className="sm:hidden divide-y divide-gray-100">
+  {selectedRun.payslips.map((p: any) => (
+    <div key={p.id} className="p-4">
+      <h4 className="font-semibold text-gray-800 mb-2">
+        {p.first_name} {p.last_name}
+        <span className="text-gray-400 text-xs ml-1">({p.employee_code})</span>
+      </h4>
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p className="text-xs text-gray-500">Gross Pay</p>
+          <p className="font-medium">₦{Number(p.gross_pay).toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">Net Pay</p>
+          <p className="font-bold text-green-600">₦{Number(p.net_pay).toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">PAYE Tax</p>
+          <p className="text-red-600">₦{Number(p.paye_tax).toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">Pension</p>
+          <p className="text-red-600">₦{Number(p.pension_employee).toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">NHF</p>
+          <p className="text-red-600">₦{Number(p.nhf || 0).toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">NHIS</p>
+          <p className="text-red-600">₦{Number(p.nhis || 0).toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">Jichma</p>
+          <p className="text-red-600">₦{Number(p.jichma || 0).toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">Total Deductions</p>
+          <p className="font-medium text-red-700">₦{Number(p.total_deductions).toLocaleString()}</p>
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
             </div>
           </div>
         </div>

@@ -1,101 +1,8 @@
-// import express from 'express';
-// import pool from '../db/pool.js';
-// import { periodGuard } from '../middleware/period.js';
-
-// const router = express.Router();
-
-// // Get all payments
-// router.get('/', async (req, res) => {
-//   try {
-//     const result = await pool.query(`
-//       SELECT p.*, s.name as supplier_name, b.bill_number
-//       FROM payments p
-//       LEFT JOIN suppliers s ON p.supplier_id = s.id
-//       LEFT JOIN bills b ON p.bill_id = b.id
-//       ORDER BY p.created_at DESC
-//     `);
-//     res.json(result.rows);
-//   } catch (error) {
-//     console.error('Get payments error:', error);
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
-
-// // Create payment
-// router.post('/', periodGuard, async (req, res) => {
-//   const client = await pool.connect();
-//   try {
-//     const { supplier_id, bill_id, amount, payment_date, payment_method } = req.body;
-//     const paymentAmount = parseFloat(amount);
-//     const paymentNumber = `PAY-${Date.now().toString().slice(-8)}`;
-
-//     await client.query('BEGIN');
-
-//     // Create payment
-//     const payment = await client.query(`
-//       INSERT INTO payments (payment_number, supplier_id, bill_id, amount, payment_date, payment_method)
-//       VALUES ($1, $2, $3, $4, $5, $6)
-//       RETURNING *
-//     `, [paymentNumber, supplier_id, bill_id, paymentAmount, payment_date, payment_method || 'bank_transfer']);
-
-//     // Create journal entry
-//     const entryNumber = `JV-${Date.now()}`;
-//     const journal = await client.query(`
-//       INSERT INTO journal_entries (entry_number, description, entry_date, period, status, created_by)
-//       VALUES ($1, $2, $3, 'JUL-2026', 'posted', 1)
-//       RETURNING id
-//     `, [entryNumber, `Payment made - ${paymentNumber}`, payment_date]);
-
-//     // Debit Accounts Payable (reduce what we owe)
-//     await client.query(`
-//       INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit)
-//       VALUES ($1, 11, $2, $3, 0)
-//     `, [journal.rows[0].id, `Payment ${paymentNumber}`, paymentAmount]);
-
-//     // Credit Bank (money leaves bank)
-//     await client.query(`
-//       INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit)
-//       VALUES ($1, 4, $2, 0, $3)
-//     `, [journal.rows[0].id, `Payment ${paymentNumber}`, paymentAmount]);
-
-//     // Update supplier balance
-//     await client.query(
-//       'UPDATE suppliers SET current_balance = current_balance - $1 WHERE id = $2',
-//       [paymentAmount, supplier_id]
-//     );
-
-//     // Update bill status if fully paid
-//     if (bill_id) {
-//       const bill = await client.query('SELECT total FROM bills WHERE id = $1', [bill_id]);
-//       const payments = await client.query(
-//         'SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE bill_id = $1',
-//         [bill_id]
-//       );
-//       if (parseFloat(payments.rows[0].total_paid) >= parseFloat(bill.rows[0].total)) {
-//         await client.query("UPDATE bills SET status = 'paid' WHERE id = $1", [bill_id]);
-//       }
-//     }
-
-//     await client.query('COMMIT');
-
-//     res.status(201).json(payment.rows[0]);
-
-//   } catch (error) {
-//     await client.query('ROLLBACK');
-//     console.error('Create payment error:', error);
-//     res.status(500).json({ error: 'Server error' });
-//   } finally {
-//     client.release();
-//   }
-// });
-
-// export default router;
-
-
 import express, { Request, Response } from 'express';
 import pool from '../db/pool.js';
 import { periodGuard } from '../middleware/period.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { sendEmail } from '../services/email.js';
 
 const router = express.Router();
 
@@ -322,6 +229,41 @@ router.post('/', authMiddleware, periodGuard, async (req: Request, res: Response
 
     await client.query('COMMIT');
 
+    // Send payment notification to supplier
+try {
+  const supplierResult = await pool.query('SELECT email, name FROM suppliers WHERE id = $1', [supplier_id]);
+  const supplier = supplierResult.rows[0];
+  
+  if (supplier?.email) {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="text-align: center; padding: 20px; background: #1e3a5f; color: white;">
+          <h1 style="margin: 0;">Galaxy ITT</h1>
+          <p style="margin: 5px 0 0 0; opacity: 0.8;">Payment Notification</p>
+        </div>
+        <div style="padding: 30px; background: #f9f9f9;">
+          <p>Dear ${supplier.name},</p>
+          <p>We have processed a payment to your account. Details below:</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Payment Reference:</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd;">${paymentNumber}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Payment Date:</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd;">${new Date(payment_date).toLocaleDateString()}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Amount:</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd;">₦${paymentAmount.toLocaleString()}</td></tr>
+            ${whtAmount > 0 ? `<tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>WHT Deducted:</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd;">₦${whtAmount.toLocaleString()}</td></tr>` : ''}
+            <tr><td style="padding: 12px 8px; background: #16a34a; color: white;"><strong>Net Amount Paid:</strong></td><td style="padding: 12px 8px; background: #16a34a; color: white;"><strong>₦${netPayment.toLocaleString()}</strong></td></tr>
+          </table>
+          <p>Please confirm receipt.</p>
+          <p>Thank you.</p>
+        </div>
+        <div style="text-align: center; padding: 15px; background: #eee; color: #666; font-size: 12px;">
+          © Galaxy ITT — Automated message.
+        </div>
+      </div>
+    `;
+    await sendEmail(supplier.email, `Payment Notification ${paymentNumber} — Galaxy ITT`, html);
+  }
+} catch (emailError) {
+  console.error('Payment email failed:', emailError);
+}
     res.status(201).json({
       ...payment,
       journal_entry_id: journalId,

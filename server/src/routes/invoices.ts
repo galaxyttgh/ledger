@@ -1,161 +1,10 @@
-// import express from 'express';
-// import pool from '../db/pool.js';
-// import { z } from 'zod';
-// import { periodGuard } from '../middleware/period.js';
-
-// const invoiceSchema = z.object({
-//   customer_id: z.number().min(1),
-//   invoice_date: z.string().min(1),
-//   due_date: z.string().min(1),
-//   description: z.string().min(1),
-//   amount: z.number().positive('Amount must be positive'),
-// });
-
-// const router = express.Router();
-
-// // Get all invoices
-// router.get('/', async (req, res) => {
-//   try {
-//     const result = await pool.query(`
-//       SELECT i.*, c.name as customer_name, u.full_name as created_by_name
-//       FROM invoices i
-//       JOIN customers c ON i.customer_id = c.id
-//       LEFT JOIN users u ON i.created_by = u.id
-//       ORDER BY i.created_at DESC
-//     `);
-//     res.json(result.rows);
-//   } catch (error) {
-//     console.error('Get invoices error:', error);
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
-
-// // Create invoice
-// router.post('/',  periodGuard, async (req, res) => {
-//   const client = await pool.connect();
-//   const validation = invoiceSchema.safeParse(req.body);
-// if (!validation.success) {
-//   res.status(400).json({ error: 'Validation failed', details: validation.error.issues });
-//   return;
-// }
-//   try {
-//     const { customer_id, invoice_date, due_date, description, amount } = req.body;
-//     const taxRate = 0.075; // 7.5% VAT
-//     const subtotal = parseFloat(amount);
-//     const taxAmount = subtotal * taxRate;
-//     const total = subtotal + taxAmount;
-
-//     // Generate invoice number
-//     const invoiceNumber = `INV-${Date.now().toString().slice(-8)}`;
-
-//     await client.query('BEGIN');
-
-//     // Create invoice
-//     const invoice = await client.query(`
-//       INSERT INTO invoices (invoice_number, customer_id, invoice_date, due_date, description, subtotal, tax_amount, total, status, created_by)
-//       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'posted', 1)
-//       RETURNING *
-//     `, [invoiceNumber, customer_id, invoice_date, due_date, description, subtotal, taxAmount, total]);
-
-//     // Create journal entry for the invoice
-//     const entryNumber = `JV-${Date.now()}`;
-//     const journal = await client.query(`
-//       INSERT INTO journal_entries (entry_number, description, entry_date, period, status, created_by)
-//       VALUES ($1, $2, $3, 'JUL-2026', 'posted', 1)
-//       RETURNING id
-//     `, [entryNumber, `Invoice ${invoiceNumber} - ${description}`, invoice_date]);
-
-//     // Debit Accounts Receivable
-//     await client.query(`
-//       INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit)
-//       VALUES ($1, 5, $2, $3, 0)
-//     `, [journal.rows[0].id, `Invoice ${invoiceNumber}`, total]);
-
-//     // Credit Revenue
-//     await client.query(`
-//       INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit)
-//       VALUES ($1, 22, $2, 0, $3)
-//     `, [journal.rows[0].id, `Revenue from ${invoiceNumber}`, subtotal]);
-
-//     // Credit VAT Payable (if tax > 0)
-//     if (taxAmount > 0) {
-//       await client.query(`
-//         INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit)
-//         VALUES ($1, 12, $2, 0, $3)
-//       `, [journal.rows[0].id, `VAT on ${invoiceNumber}`, taxAmount]);
-//     }
-
-//     // Update customer balance
-//     await client.query(
-//       'UPDATE customers SET current_balance = current_balance + $1 WHERE id = $2',
-//       [total, customer_id]
-//     );
-
-//     await client.query('COMMIT');
-
-//     res.status(201).json(invoice.rows[0]);
-
-//   } catch (error) {
-//     await client.query('ROLLBACK');
-//     console.error('Create invoice error:', error);
-//     res.status(500).json({ error: 'Server error' });
-//   } finally {
-//     client.release();
-//   }
-// });
-
-// // Create credit note
-// router.post('/credit-note', async (req, res) => {
-//   const client = await pool.connect();
-//   try {
-//     const { customer_id, invoice_id, amount, reason } = req.body;
-//     const creditAmount = parseFloat(amount);
-//     const noteNumber = `CN-${Date.now().toString().slice(-8)}`;
-
-//     await client.query('BEGIN');
-
-//     // Create credit note (stored in invoices with negative total)
-//     await client.query(`
-//       INSERT INTO invoices (invoice_number, customer_id, invoice_date, due_date, description, subtotal, tax_amount, total, status, created_by)
-//       VALUES ($1, $2, CURRENT_DATE, CURRENT_DATE, $3, 0, 0, $4, 'credit_note', $5)
-//     `, [noteNumber, customer_id, reason || 'Credit Note', -creditAmount, (req as any).userId || 1]);
-
-//     // Journal entry: Dr Revenue, Cr AR
-//     const entryNumber = `JV-${Date.now()}`;
-//     const journal = await client.query(`
-//       INSERT INTO journal_entries (entry_number, description, entry_date, period, status, created_by)
-//       VALUES ($1, $2, CURRENT_DATE, 'JUL-2026', 'posted', $3) RETURNING id
-//     `, [entryNumber, `Credit Note ${noteNumber} - ${reason}`, (req as any).userId || 1]);
-
-//     await client.query(
-//       'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, 22, $2, $3, 0)',
-//       [journal.rows[0].id, 'Revenue reversal', creditAmount]
-//     );
-//     await client.query(
-//       'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit) VALUES ($1, 5, $2, 0, $3)',
-//       [journal.rows[0].id, 'AR reduction', creditAmount]
-//     );
-
-//     // Update customer balance
-//     await client.query('UPDATE customers SET current_balance = current_balance - $1 WHERE id = $2', [creditAmount, customer_id]);
-
-//     await client.query('COMMIT');
-//     res.status(201).json({ message: 'Credit note created', note_number: noteNumber });
-
-//   } catch (error) {
-//     await client.query('ROLLBACK');
-//     res.status(500).json({ error: 'Server error' });
-//   } finally {
-//     client.release();
-//   }
-// });
-// export default router;
 
 import express from 'express';
 import pool from '../db/pool.js';
 import { z } from 'zod';
 import { periodGuard } from '../middleware/period.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { sendEmail } from '../services/email.js';
 
 const invoiceSchema = z.object({
   customer_id: z.number().min(1),
@@ -382,7 +231,45 @@ router.post('/', authMiddleware, periodGuard, async (req, res) => {
       VALUES ($1, 'CREATE', 'invoices', $2, $3)
     `, [userId, invoiceId, JSON.stringify({ invoice_number: invoiceNumber, total, customer_id })]);
 
-    await client.query('COMMIT');
+       await client.query('COMMIT');
+
+    // Send invoice email to customer
+    try {
+      const customerResult = await client.query('SELECT email, name FROM customers WHERE id = $1', [customer_id]);
+      const customer = customerResult.rows[0];
+      
+      if (customer?.email) {
+        const html = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="text-align: center; padding: 20px; background: #1e3a5f; color: white;">
+              <h1 style="margin: 0;">Galaxy ITT</h1>
+              <p style="margin: 5px 0 0 0; opacity: 0.8;">Invoice</p>
+            </div>
+            <div style="padding: 30px; background: #f9f9f9;">
+              <p>Dear ${customer.name},</p>
+              <p>Please find below the details of your invoice:</p>
+              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Invoice Number:</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd;">${invoiceNumber}</td></tr>
+                <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Date:</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd;">${new Date(invoice_date).toLocaleDateString()}</td></tr>
+                <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Due Date:</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd;">${new Date(due_date).toLocaleDateString()}</td></tr>
+                <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Description:</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd;">${description}</td></tr>
+                <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Subtotal:</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd;">₦${subtotal.toLocaleString()}</td></tr>
+                <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>VAT (7.5%):</strong></td><td style="padding: 8px; border-bottom: 1px solid #ddd;">₦${taxAmount.toLocaleString()}</td></tr>
+                <tr><td style="padding: 12px 8px; background: #1e3a5f; color: white;"><strong>Total:</strong></td><td style="padding: 12px 8px; background: #1e3a5f; color: white;"><strong>₦${total.toLocaleString()}</strong></td></tr>
+              </table>
+              <p>Please make payment on or before the due date.</p>
+              <p>Thank you for your business.</p>
+            </div>
+            <div style="text-align: center; padding: 15px; background: #eee; color: #666; font-size: 12px;">
+              © Galaxy ITT — This is an automated message, please do not reply.
+            </div>
+          </div>
+        `;
+        await sendEmail(customer.email, `Invoice ${invoiceNumber} — Galaxy ITT`, html);
+      }
+    } catch (emailError) {
+      console.error('Invoice email failed:', emailError);
+    }
 
     res.status(201).json({
       ...invoice.rows[0],
@@ -470,6 +357,7 @@ router.post('/credit-note', authMiddleware, periodGuard, async (req, res) => {
     );
 
     await client.query('COMMIT');
+    
     res.status(201).json({ 
       message: 'Credit note created', 
       note_number: noteNumber,

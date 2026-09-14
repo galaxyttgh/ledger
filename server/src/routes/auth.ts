@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import pool from '../db/pool.js';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
-
+import { sendEmail } from '../services/email.js';
 
 const adminOnly = (req: any, res: any, next: any) => {
   if (req.userRole !== 'admin') {
@@ -127,41 +127,56 @@ router.post('/login', loginLimiter, async (req, res) => {
 
 
 
-// Forgot Password - Send reset link
+// Forgot Password - Send reset link via email
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Find user
     const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (user.rows.length === 0) {
-      // Don't reveal if email exists or not
       res.json({ message: 'If that email exists, a reset link has been sent.' });
       return;
     }
 
-    // Generate token
     const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 3600000); // 1 hour
+    const expiresAt = new Date(Date.now() + 3600000);
 
     await pool.query(
       'INSERT INTO password_resets (user_id, token, expires_at) VALUES ($1, $2, $3)',
       [user.rows[0].id, token, expiresAt]
     );
 
-  // In production, send this via email. Token is never returned to client.
-console.log(`Password reset requested for ${email}`);
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+    
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="text-align: center; padding: 20px; background: #1e3a5f; color: white;">
+          <h1 style="margin: 0;">Galaxy ITT</h1>
+          <p style="margin: 5px 0 0 0; opacity: 0.8;">Password Reset Request</p>
+        </div>
+        <div style="padding: 30px; background: #f9f9f9;">
+          <p>Hello ${user.rows[0].full_name},</p>
+          <p>We received a request to reset your password. Click the button below to set a new password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="background: #1e3a5f; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password</a>
+          </div>
+          <p style="color: #666; font-size: 14px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+        </div>
+        <div style="text-align: center; padding: 15px; background: #eee; color: #666; font-size: 12px;">
+          © Galaxy ITT — This is an automated message, please do not reply.
+        </div>
+      </div>
+    `;
 
-res.json({ 
-  message: 'If that email exists, a reset link has been sent.'
-});
+    await sendEmail(email, 'Password Reset — Galaxy ITT', html);
+
+    res.json({ message: 'If that email exists, a reset link has been sent.' });
 
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 // Reset Password
 router.post('/reset-password', async (req, res) => {
   try {

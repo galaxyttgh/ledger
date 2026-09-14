@@ -113,6 +113,7 @@ import SoDRules from './pages/SoDRules';
 import ChangePassword from './pages/ChangePassword';
 import UserManagement from './pages/UserManagement';
 import Inventory from './pages/Inventory';
+import PaymentVouchers from './pages/PaymentVouchers';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -218,6 +219,7 @@ const AppRoutes = () => {
 <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
 <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
     <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+   <Route path="/payment-vouchers" element={<ProtectedRoute><PaymentVouchers /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

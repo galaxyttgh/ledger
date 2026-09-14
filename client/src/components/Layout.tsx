@@ -289,12 +289,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   };
 
   const menuGroups: MenuGroup[] = [
-    { label: 'Accounting', icon: '📒', items: [
-      { path: '/general-ledger', label: 'General Ledger' },
-      { path: '/accounts', label: 'Chart of Accounts' },
-      { path: '/period-close', label: 'Period Close' },
-      { path: '/inventory', label: 'Inventory' },
-    ]},
+  { label: 'Accounting', icon: '📒', items: [
+  { path: '/general-ledger', label: 'General Ledger' },
+  { path: '/accounts', label: 'Chart of Accounts' },
+  { path: '/period-close', label: 'Period Close' },
+]},
     { label: 'Sales (AR)', icon: '👥', items: [
       { path: '/customers', label: 'Customers' },
       { path: '/invoices', label: 'Invoices' },
@@ -314,6 +313,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       { path: '/purchase-orders', label: 'Purchase Orders' },
       { path: '/purchase-orders/goods-receipt', label: 'Goods Receipt' },
 { path: '/purchase-orders/match', label: '3-Way Match' },
+{ path: '/payment-vouchers', label: 'Payment Vouchers' },
+
     ]},
     { label: 'Banking', icon: '🏦', items: [
       { path: '/bank-reconciliation', label: 'Bank Reconciliation' },
@@ -321,6 +322,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     { label: 'Payroll & Assets', icon: '💵', items: [
       { path: '/payroll', label: 'Payroll' },
       { path: '/assets', label: 'Fixed Assets' },
+       { path: '/inventory', label: 'Inventory' },
       { path: '/budget', label: 'Budget vs Actual' },
     ]},
     { label: 'Reports', icon: '📈', items: [
@@ -350,9 +352,10 @@ const getVisibleGroups = (): MenuGroup[] => {
  const roleAccess: Record<string, string[]> = {
   admin: ['Accounting', 'Sales (AR)', 'Purchases (AP)', 'Banking', 'Payroll & Assets', 'Reports', 'Approvals', 'Controls'],
   accountant: ['Accounting', 'Sales (AR)', 'Purchases (AP)', 'Banking', 'Payroll & Assets', 'Reports', 'Approvals'],
-  hr_payroll: ['Payroll & Assets'],
+hr_payroll: ['Payroll & Assets', 'Approvals'],
   manager: ['Reports', 'Approvals'],
   auditor: ['Accounting', 'Sales (AR)', 'Purchases (AP)', 'Banking', 'Payroll & Assets', 'Reports', 'Approvals', 'Controls'],
+   marketing: ['Sales (AR)'],
 };
 
   const allowedGroups = roleAccess[role] || roleAccess.admin;

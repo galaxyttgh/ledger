@@ -26,6 +26,8 @@ import collectionRoutes from './routes/collections.js';
 import poRoutes from './routes/purchaseOrders.js';
 import delegationRoutes from './routes/delegations.js';
 import inventoryRoutes from './routes/inventory.js';
+import voucherRoutes from './routes/paymentVouchers.js';
+import { sendEmail } from './services/email.js';
 
 dotenv.config();
 
@@ -74,7 +76,7 @@ app.use('/api/collections', collectionRoutes);
 app.use('/api/purchase-orders', poRoutes);
 app.use('/api/delegations', delegationRoutes);
 app.use('/api/inventory', inventoryRoutes);
-
+app.use('/api/vouchers', voucherRoutes);
 // Test route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PrimeLedger API is running' });
@@ -323,10 +325,18 @@ app.get('/api/dashboard/alerts', async (req, res) => {
     `);
 
     // Pending approvals
-    const pendingApprovals = await pool.query(
-      "SELECT COUNT(*) as count FROM approvals WHERE status = 'pending'"
-    );
-
+    // const pendingApprovals = await pool.query(
+    //   "SELECT COUNT(*) as count FROM approvals WHERE status = 'pending'"
+    // );
+const pendingApprovals = await pool.query(
+  `SELECT COUNT(*) as count 
+   FROM approval_steps aps
+   JOIN approvals a ON aps.approval_id = a.id
+   WHERE aps.step_role = $1 
+     AND aps.status = 'active' 
+     AND a.status = 'pending'`,
+  [(req as any).userRole || 'admin']
+);
     // Unmatched bank transactions
     const unmatched = await pool.query(
       "SELECT COUNT(*) as count FROM bank_transactions WHERE status = 'unmatched'"
@@ -906,6 +916,14 @@ app.get('/api/dashboard/trends', async (req, res) => {
   }
 });
 
+app.get('/api/test-email', async (req, res) => {
+  const result = await sendEmail(
+    'ibrahimahmad9683@example.com',
+    'PrimeLedger Test',
+    '<h1>Test Email</h1><p>If you see this, SMTP is working!</p>'
+  );
+  res.json(result);
+});
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Network access: http://10.10.10.43:${PORT}`);
