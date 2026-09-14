@@ -79,7 +79,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/vouchers', voucherRoutes);
 // Test route
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'PrimeLedger API is running' });
+  res.json({ status: 'ok', message: 'GalaxyLedger API is running' });
 });
 
 // Dashboard stats
@@ -916,14 +916,15 @@ app.get('/api/dashboard/trends', async (req, res) => {
   }
 });
 
-app.get('/api/test-email', async (req, res) => {
-  const result = await sendEmail(
-    'ibrahimahmad9683@example.com',
-    'PrimeLedger Test',
-    '<h1>Test Email</h1><p>If you see this, SMTP is working!</p>'
-  );
-  res.json(result);
-});
+// app.get('/api/test-email', async (req, res) => {
+//   const result = await sendEmail(
+//     'ibrahimahmad9683@example.com',
+//     'GalaxyLedger Test',
+//     '<h1>Test Email</h1><p>If you see this, SMTP is working!</p>'
+//   );
+//   res.json(result);
+// });
+
 app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Network access: http://10.10.10.43:${PORT}`);

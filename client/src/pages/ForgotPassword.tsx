@@ -28,7 +28,7 @@
 //     <div className="min-h-screen bg-gradient-to-br from-blue-900 to-gray-800 flex items-center justify-center p-4">
 //       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
 //         <div className="text-center mb-8">
-//           <h1 className="text-3xl font-bold text-blue-900">PrimeLedger</h1>
+//           <h1 className="text-3xl font-bold text-blue-900">GalaxyLedger</h1>
 //           <p className="text-gray-500 mt-2">Reset your password</p>
 //         </div>
 
@@ -170,7 +170,7 @@ const ForgotPassword = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-900 rounded-2xl mb-4">
             <span className="text-white text-2xl font-bold">PL</span>
           </div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-blue-900">PrimeLedger</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold text-blue-900">GalaxyLedger</h1>
           <p className="text-gray-500 mt-2 text-sm">
             {step === 'email' && 'Reset your password'}
             {step === 'token' && 'Check your email'}
@@ -384,7 +384,7 @@ const ForgotPassword = () => {
         {/* Footer */}
         <div className="mt-6 pt-6 border-t border-gray-100 text-center">
           <p className="text-xs text-gray-400">
-            © 2026 PrimeLedger. All rights reserved.
+            © 2026 GalaxyLedger. All rights reserved.
           </p>
         </div>
       </div>

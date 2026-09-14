@@ -86,7 +86,7 @@
 //         <div className="max-w-2xl mx-auto">
 //           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
 //             <div className="px-6 py-4 bg-blue-900 text-white text-center">
-//               <h3 className="text-xl font-bold">PrimeLedger</h3>
+//               <h3 className="text-xl font-bold">GalaxyLedger</h3>
 //               <p className="text-sm opacity-80">Cash Flow Statement — July 2026</p>
 //             </div>
 //             <div className="p-6">
@@ -286,7 +286,7 @@ const CashFlow = () => {
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             {/* Report Header */}
             <div className="px-4 lg:px-6 py-4 lg:py-5 bg-gradient-to-r from-blue-900 to-blue-800 text-white text-center">
-              <h3 className="text-lg lg:text-xl font-bold">PrimeLedger</h3>
+              <h3 className="text-lg lg:text-xl font-bold">GalaxyLedger</h3>
               <p className="text-sm opacity-80 mt-1">Cash Flow Statement — July 2026</p>
             </div>
 
