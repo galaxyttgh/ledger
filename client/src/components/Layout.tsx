@@ -195,11 +195,11 @@ const visibleGroups = getVisibleGroups();
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-sm">PL</span>
+              <span className="text-white font-bold text-sm">GL</span>
             </div>
             <div>
               <h1 className="text-lg font-bold tracking-tight">GalaxyLedger</h1>
-              <p className="text-blue-300/80 text-[11px] font-medium">Accounting Platform.</p>
+              <p className="text-blue-300/80 text-[11px] font-medium">Accounting Platform</p>
             </div>
           </div>
           <button 

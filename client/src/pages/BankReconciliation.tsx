@@ -126,17 +126,7 @@ const BankReconciliation = () => {
     }
   };
 
-  // const openMatchModal = async (txnId: number) => {
-  //   setSelectedTxnId(txnId);
-  //   try {
-  //     const response = await api.get('/journals');
-  //     setJournalEntries(response.data);
-  //   } catch (error) {
-  //     console.error('Failed to fetch journals:', error);
-  //   }
-  //   setMatchModal(true);
-  // };
-const openMatchModal = async (txnId: number) => {
+  const openMatchModal = async (txnId: number) => {
   console.log('Opening match modal for txn:', txnId);
   setSelectedTxnId(txnId);
   try {
