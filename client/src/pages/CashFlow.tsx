@@ -43,7 +43,7 @@ const CashFlow = () => {
   };
 
   const CashFlowPDF = ({ data }: { data: CashFlowData }) => (
-    <ReportPDF title="Cash Flow Statement" subtitle="July 2026">
+   <ReportPDF title="Cash Flow Statement" subtitle={new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}>
       <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12, marginBottom: 4 }}>Operating Activities</Text>
       {data.operatingActivities.map((item, i) => (
         <PDFRow key={i} label={item.name} value={`NGN ${Math.abs(item.amount).toLocaleString()}`} />
@@ -104,7 +104,7 @@ const CashFlow = () => {
             {data && (
               <PDFDownloadLink
                 document={<CashFlowPDF data={data} />}
-                fileName="Cash_Flow_July_2026.pdf"
+                fileName={`Cash_Flow_${new Date().toLocaleString('default', { month: 'long', year: 'numeric' }).replace(' ', '_')}.pdf`}
                 className="flex-1 sm:flex-none px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 
                          active:bg-red-800 transition-colors text-sm font-medium text-center"
               >
@@ -161,7 +161,7 @@ const CashFlow = () => {
             {/* Report Header */}
             <div className="px-4 lg:px-6 py-4 lg:py-5 bg-gradient-to-r from-blue-900 to-blue-800 text-white text-center">
               <h3 className="text-lg lg:text-xl font-bold">GalaxyLedger</h3>
-              <p className="text-sm opacity-80 mt-1">Cash Flow Statement — July 2026</p>
+            <p className="text-sm opacity-80 mt-1">Cash Flow Statement — {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
             </div>
 
             <div className="p-4 lg:p-6">

@@ -26,7 +26,7 @@ const VATSchedule = () => {
   };
 
   const VATPDF = ({ data }: { data: any }) => (
-    <ReportPDF title="VAT Return Schedule" subtitle="July 2026">
+    <ReportPDF title="VAT Return Schedule" subtitle={new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}>
       <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12 }}>Output VAT (Collected)</Text>
       <PDFRow label="VAT on Sales" value={`NGN ${data.outputVAT.toLocaleString()}`} />
       <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12 }}>Input VAT (Paid)</Text>

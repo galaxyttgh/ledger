@@ -518,15 +518,15 @@ app.get('/api/reports/vat-schedule', async (req, res) => {
     const outputVAT = await pool.query(`
       SELECT COALESCE(SUM(tax_amount), 0) as total
       FROM invoices
-      WHERE status IN ('posted', 'paid')
+      WHERE status IN ('posted', 'paid', 'partially_paid')
     `);
 
     // VAT Paid (Input VAT) - from bills
-    const inputVAT = await pool.query(`
-      SELECT COALESCE(SUM(tax_amount), 0) as total
-      FROM bills
-      WHERE status IN ('posted', 'paid')
-    `);
+const inputVAT = await pool.query(`
+  SELECT COALESCE(SUM(tax_amount), 0) as total
+  FROM bills
+  WHERE status IN ('posted', 'paid', 'partially_paid')
+`);
 
     // VAT on credit notes (refunds reduce output VAT)
     const creditNoteVAT = await pool.query(`
@@ -547,17 +547,18 @@ app.get('/api/reports/vat-schedule', async (req, res) => {
     const netVATPayable = totalOutputVAT - totalInputVAT;
 
     // Get transaction details
-    const outputDetails = await pool.query(`
-      SELECT invoice_number, invoice_date, customer_id, subtotal, tax_amount, total, status
-      FROM invoices WHERE status IN ('posted', 'paid', 'credit_note')
-      ORDER BY invoice_date
-    `);
+  const outputDetails = await pool.query(`
+  SELECT invoice_number, invoice_date, customer_id, subtotal, tax_amount, total, status
+  FROM invoices
+  WHERE status IN ('posted', 'paid', 'partially_paid', 'credit_note')
+  ORDER BY invoice_date
+`);
 
-    const inputDetails = await pool.query(`
-      SELECT bill_number, bill_date, supplier_id, subtotal, tax_amount, total, status
-      FROM bills WHERE status IN ('posted', 'paid', 'debit_note')
-      ORDER BY bill_date
-    `);
+   const inputDetails = await pool.query(`
+  SELECT bill_number, bill_date, supplier_id, subtotal, tax_amount, total, status
+  FROM bills WHERE status IN ('posted', 'paid', 'partially_paid', 'debit_note')
+  ORDER BY bill_date
+`);
 
     res.json({
       outputVAT: totalOutputVAT,

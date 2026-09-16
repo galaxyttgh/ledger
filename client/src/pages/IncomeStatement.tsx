@@ -51,7 +51,7 @@ const IncomeStatement = () => {
   };
 
   const IncomeStatementPDF = ({ data }: { data: any }) => (
-    <ReportPDF title="Income Statement" subtitle="July 2026">
+   <ReportPDF title="Income Statement" subtitle={new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}>
       <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12, marginBottom: 4 }}>Revenue</Text>
       {data.revenue.map((item: any) => (
         <PDFRow key={item.code} label={`${item.code} — ${item.name}`} value={`NGN ${item.amount.toLocaleString()}`} />
@@ -107,7 +107,7 @@ const IncomeStatement = () => {
             {data && (
               <PDFDownloadLink
                 document={<IncomeStatementPDF data={data} />}
-                fileName="Income_Statement_July_2026.pdf"
+                fileName={`Income_Statement_${new Date().toLocaleString('default', { month: 'long', year: 'numeric' }).replace(' ', '_')}.pdf`}
                 className="flex-1 sm:flex-none px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 
                          active:bg-red-800 transition-colors text-sm font-medium text-center"
               >
@@ -166,7 +166,7 @@ const IncomeStatement = () => {
             {/* Report Header */}
             <div className="px-4 lg:px-6 py-4 lg:py-5 bg-gradient-to-r from-blue-900 to-blue-800 text-white text-center">
               <h3 className="text-lg lg:text-xl font-bold">GalaxyLedger</h3>
-              <p className="text-sm opacity-80 mt-1">Income Statement — July 2026</p>
+             <p className="text-sm opacity-80 mt-1">Income Statement — {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
             </div>
 
             <div className="p-4 lg:p-6">

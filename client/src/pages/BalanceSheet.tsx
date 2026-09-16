@@ -54,7 +54,7 @@ const BalanceSheet = () => {
   };
 
   const BalanceSheetPDF = ({ data }: { data: any }) => (
-    <ReportPDF title="Balance Sheet" subtitle="July 2026">
+    <ReportPDF title="Cash Flow Statement" subtitle={new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}>
       <Text style={{ fontSize: 14, fontWeight: 'bold', marginTop: 12, marginBottom: 4 }}>Assets</Text>
       {data.assets.map((item: any) => (
         <PDFRow key={item.code} label={`${item.code} — ${item.name}`} value={`NGN ${item.amount.toLocaleString()}`} />
@@ -162,7 +162,7 @@ const BalanceSheet = () => {
             {data && (
               <PDFDownloadLink
                 document={<BalanceSheetPDF data={data} />}
-                fileName="Balance_Sheet_July_2026.pdf"
+                fileName={`Balance_Sheet_${new Date().toLocaleString('default', { month: 'long', year: 'numeric' }).replace(' ', '_')}.pdf`}
                 className="flex-1 sm:flex-none px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 
                          active:bg-red-800 transition-colors text-sm font-medium text-center"
               >
@@ -200,8 +200,8 @@ const BalanceSheet = () => {
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
             {/* Report Header */}
             <div className="px-4 lg:px-6 py-4 lg:py-5 bg-gradient-to-r from-blue-900 to-blue-800 text-white text-center">
-              <h3 className="text-lg lg:text-xl font-bold">PrimeLedger</h3>
-              <p className="text-sm opacity-80 mt-1">Balance Sheet — July 2026</p>
+              <h3 className="text-lg lg:text-xl font-bold">GalaxyLedger</h3>
+<p className="text-sm opacity-80">Cash Flow Statement — {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
             </div>
 
             {/* Report Content */}

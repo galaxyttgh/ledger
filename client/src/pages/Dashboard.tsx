@@ -277,40 +277,40 @@ const isManagerView = isManager;
           </div>
 
           {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6 lg:mb-8">
-            <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
-              <h3 className="text-base lg:text-lg font-semibold text-gray-800 mb-4">Module Overview</h3>
-              <div className="w-full" style={{ height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
-                    <YAxis tick={{ fontSize: 10 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#1e3a5f" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
-              <h3 className="text-base lg:text-lg font-semibold text-gray-800 mb-4">Financial Summary</h3>
-              <div className="w-full" style={{ height: 250 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={[
-                    { name: 'Revenue', amount: financials.revenue || 0 },
-                    { name: 'Expenses', amount: financials.expenses || 0 },
-                    { name: 'Net Profit', amount: financials.netProfit || 0 },
-                  ]} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
-                    <YAxis tick={{ fontSize: 10 }} />
-                    <Tooltip />
-                    <Bar dataKey="amount" fill="#16a34a" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
+       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6 lg:mb-8">
+  <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
+    <h3 className="text-base lg:text-lg font-semibold text-gray-800 mb-4">Module Overview</h3>
+    <div className="w-full" style={{ height: 250 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={chartData} margin={{ top: 5, right: 5, left: 10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
+          <YAxis tick={{ fontSize: 10 }} />
+          <Tooltip />
+          <Bar dataKey="count" fill="#1e3a5f" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  </div>
+  <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
+    <h3 className="text-base lg:text-lg font-semibold text-gray-800 mb-4">Financial Summary</h3>
+    <div className="w-full" style={{ height: 250 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={[
+          { name: 'Revenue', amount: financials.revenue || 0 },
+          { name: 'Expenses', amount: financials.expenses || 0 },
+          { name: 'Net Profit', amount: financials.netProfit || 0 },
+        ]} margin={{ top: 5, right: 5, left: 10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} />
+          <YAxis tick={{ fontSize: 10 }} />
+          <Tooltip />
+          <Bar dataKey="amount" fill="#16a34a" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  </div>
+</div>
 
           {trends.length > 0 && (
             <div className="bg-white rounded-xl shadow-sm p-6 mb-8">

@@ -103,7 +103,7 @@ useEffect(() => {
   const isBalanced = data ? Math.abs(data.totals.debit_balance - data.totals.credit_balance) < 0.01 : false;
 
   const TrialBalancePDF = ({ data }: { data: any }) => (
-    <ReportPDF title="Trial Balance" subtitle="July 2026">
+    <ReportPDF title="Trial Balance" subtitle={new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}>
       {data.accounts.map((acc: any) => (
         <PDFRow
           key={acc.id}
@@ -148,7 +148,7 @@ useEffect(() => {
       {data && (
         <PDFDownloadLink
           document={<TrialBalancePDF data={data} />}
-          fileName="Trial_Balance_July_2026.pdf"
+          fileName={`Cash_Flow_${new Date().toLocaleString('default', { month: 'long', year: 'numeric' }).replace(' ', '_')}.pdf`}
           className="flex-1 sm:flex-none px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 active:bg-red-800 transition-colors text-sm font-medium text-center"
         >
           📄 Export PDF
@@ -163,7 +163,7 @@ useEffect(() => {
       <option value="">All Branches</option>
       {branches.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
     </select>
-    <input type="text" value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value)} placeholder="Period (e.g., JUL-2026)" className="px-3 py-2 border border-gray-300 rounded-xl text-sm w-44" />
+    <input type="text" value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value)} placeholder={`Period (e.g., ${new Date().toLocaleString('default', { month: 'short' }).toUpperCase()}-${new Date().getFullYear()})`} className="px-3 py-2 border border-gray-300 rounded-xl text-sm w-44" />
   </div>
 </div>
 

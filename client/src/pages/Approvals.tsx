@@ -42,6 +42,8 @@ const Approvals = () => {
   const [multiType, setMultiType] = useState('purchase');
   const [multiDescription, setMultiDescription] = useState('');
   const [multiAmount, setMultiAmount] = useState('');
+  const [payrollRuns, setPayrollRuns] = useState<any[]>([]);
+const [selectedPayrollId, setSelectedPayrollId] = useState('');
 const [steps, setSteps] = useState<{role: string}[]>([
   { role: 'manager' },
   { role: 'accountant' },
@@ -50,6 +52,13 @@ const [steps, setSteps] = useState<{role: string}[]>([
 
 const { user } = useAuth();
   const isHR = user?.role === 'hr_payroll';
+
+
+  useEffect(() => {
+  if (multiType === 'salary') {
+    api.get('/payroll/runs').then(r => setPayrollRuns(r.data));
+  }
+}, [multiType]);
 
   useEffect(() => {
     fetchData();
@@ -189,59 +198,92 @@ const { user } = useAuth();
       </div>
 
       {/* Multi-Step Form */}
-      {showMultiForm && (
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-4">
-          <h3 className="font-semibold mb-4">New Approval Request</h3>
-          <div className="space-y-4 mb-4">
-            <select value={multiType} onChange={e => setMultiType(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm">
-              <option value="purchase">Purchase Request</option>
-              <option value="salary">Salary Approval</option>
-              <option value="payment">Payment Request</option>
-              <option value="other">Other</option>
-            </select>
-            <textarea value={multiDescription} onChange={e => setMultiDescription(e.target.value)} placeholder="Describe what you're requesting..." className="w-full px-3 py-2 border rounded-lg text-sm" rows={3} />
-            <input type="number" value={multiAmount} onChange={e => setMultiAmount(e.target.value)} placeholder="Amount (₦) — optional" className="w-full px-3 py-2 border rounded-lg text-sm" />
-          </div>
-          <p className="text-sm text-gray-600 mb-2">Approval chain:</p>
-          {steps.map((s, i) => (
-            <div key={i} className="flex items-center gap-2 mb-2">
-              <span className="text-xs text-gray-500 w-14">Step {i + 1}:</span>
-              <select value={s.role} onChange={e => {
-                const newSteps = [...steps];
-                newSteps[i].role = e.target.value;
-                setSteps(newSteps);
-              }} className="flex-1 px-3 py-2 border rounded-lg text-sm">
-                <option value="manager">MD</option>
-                <option value="accountant">Accountant</option>
-                <option value="hr_payroll">HR</option>
-                <option value="admin">Admin</option>
-              </select>
-              {i > 0 && <button onClick={() => setSteps(steps.filter((_, idx) => idx !== i))} className="text-red-500 text-sm">Remove</button>}
-            </div>
-          ))}
-          <button onClick={() => setSteps([...steps, { role: 'manager' }])} className="text-blue-600 text-sm mb-4">+ Add Step</button>
-          <button onClick={async () => {
-            if (!multiDescription.trim()) { toast.error('Please enter a description'); return; }
-            try {
-              await api.post('/approvals/submit-multi', {
-                request_type: multiType,
-                description: multiDescription,
-                amount: parseFloat(multiAmount) || 0,
-                steps,
-              });
-              toast.success('Approval request submitted');
-              setShowMultiForm(false);
-              setMultiDescription('');
-              setMultiAmount('');
-              fetchData();
-            } catch (err: any) {
-              toast.error(err.response?.data?.error || 'Failed');
-            }
-          }} className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">
-            Submit Approval Request
-          </button>
-        </div>
+    {showMultiForm && (
+  <div className="bg-white rounded-xl shadow-sm p-6 mb-4">
+    <h3 className="font-semibold mb-4">New Approval Request</h3>
+    <div className="space-y-4 mb-4">
+      <select value={multiType} onChange={e => setMultiType(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm">
+        <option value="purchase">Purchase Request</option>
+        <option value="salary">Salary Approval</option>
+        <option value="payment">Payment Request</option>
+        <option value="other">Other</option>
+      </select>
+
+      {multiType === 'salary' ? (
+        <>
+          <select 
+            value={selectedPayrollId} 
+            onChange={(e) => {
+              setSelectedPayrollId(e.target.value);
+              const run = payrollRuns.find((r: any) => r.id === parseInt(e.target.value));
+              if (run) {
+                setMultiDescription(`Salary Payment for ${run.period}`);
+                setMultiAmount(run.total_net.toString());
+              }
+            }}
+            className="w-full px-3 py-2 border rounded-lg text-sm"
+          >
+            <option value="">Select Payroll Run...</option>
+            {payrollRuns.map((run: any) => (
+              <option key={run.id} value={run.id}>
+                {run.period} — Net: ₦{Number(run.total_net).toLocaleString()}
+              </option>
+            ))}
+          </select>
+          {multiAmount && (
+            <p className="text-sm text-gray-500">
+              Amount: ₦{Number(multiAmount).toLocaleString()}
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <textarea value={multiDescription} onChange={e => setMultiDescription(e.target.value)} placeholder="Describe what you're requesting..." className="w-full px-3 py-2 border rounded-lg text-sm" rows={3} />
+          <input type="number" value={multiAmount} onChange={e => setMultiAmount(e.target.value)} placeholder="Amount (₦) — optional" className="w-full px-3 py-2 border rounded-lg text-sm" />
+        </>
       )}
+    </div>
+    <p className="text-sm text-gray-600 mb-2">Approval chain:</p>
+    {steps.map((s, i) => (
+      <div key={i} className="flex items-center gap-2 mb-2">
+        <span className="text-xs text-gray-500 w-14">Step {i + 1}:</span>
+        <select value={s.role} onChange={e => {
+          const newSteps = [...steps];
+          newSteps[i].role = e.target.value;
+          setSteps(newSteps);
+        }} className="flex-1 px-3 py-2 border rounded-lg text-sm">
+          <option value="manager">MD</option>
+          <option value="accountant">Accountant</option>
+          <option value="hr_payroll">HR</option>
+          <option value="admin">Admin</option>
+        </select>
+        {i > 0 && <button onClick={() => setSteps(steps.filter((_, idx) => idx !== i))} className="text-red-500 text-sm">Remove</button>}
+      </div>
+    ))}
+    <button onClick={() => setSteps([...steps, { role: 'manager' }])} className="text-blue-600 text-sm mb-4">+ Add Step</button>
+    <button onClick={async () => {
+      if (!multiDescription.trim()) { toast.error('Please enter a description'); return; }
+      try {
+        await api.post('/approvals/submit-multi', {
+          request_type: multiType,
+          description: multiDescription,
+          amount: parseFloat(multiAmount) || 0,
+          steps,
+        });
+        toast.success('Approval request submitted');
+        setShowMultiForm(false);
+        setMultiDescription('');
+        setMultiAmount('');
+        setSelectedPayrollId('');
+        fetchData();
+      } catch (err: any) {
+        toast.error(err.response?.data?.error || 'Failed');
+      }
+    }} className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">
+      Submit Approval Request
+    </button>
+  </div>
+)}
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4 flex-wrap">
@@ -348,11 +390,11 @@ const { user } = useAuth();
                       <button onClick={() => setSelectedApproval(a)} className="text-blue-600 hover:text-blue-800 text-sm font-medium mr-3">
                         👁️ View
                       </button>
-                      {user?.role === 'accountant' && a.status === 'approved' && !a.transaction_id && (
-                        <button onClick={() => handleRecordPayment(a)} className="text-green-600 hover:text-green-800 text-sm font-medium">
-                          💰 Record
-                        </button>
-                      )}
+                   {user?.role === 'accountant' && a.status === 'approved' && !a.transaction_id && a.transaction_type !== 'salary' && (
+  <button onClick={() => handleRecordPayment(a)} className="text-green-600 hover:text-green-800 text-sm font-medium">
+    💰 Record
+  </button>
+)}
                     </td>
                   </tr>
                 );
@@ -407,11 +449,11 @@ const { user } = useAuth();
                   <button onClick={() => setSelectedApproval(a)} className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium">
                     👁️ View / Print
                   </button>
-                  {user?.role === 'accountant' && a.status === 'approved' && !a.transaction_id && (
-                    <button onClick={() => handleRecordPayment(a)} className="flex-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg text-sm font-medium">
-                      💰 Record Payment
-                    </button>
-                  )}
+             {user?.role === 'accountant' && a.status === 'approved' && !a.transaction_id && a.transaction_type !== 'salary' && (
+  <button onClick={() => handleRecordPayment(a)} className="flex-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg text-sm font-medium">
+    💰 Record Payment
+  </button>
+)}
                 </div>
               </div>
             );

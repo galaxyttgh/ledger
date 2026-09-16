@@ -224,7 +224,7 @@ router.post('/run', periodGuard, async (req, res) => {
     let totalPension = 0;
     let totalNHF = 0;
 
-    const payslipData = [];
+    const payslipData: any[] = [];
 
     for (const emp of employees.rows) {
       // Calculate payroll
@@ -328,7 +328,35 @@ router.post('/run', periodGuard, async (req, res) => {
         [journalId, 'NHF Payable', totalNHF, runId, entryNumber]
       );
     }
+// Cr NHIS Payable
+const totalNHIS = employees.rows.reduce((sum: number, emp: any) => {
+  const calc = payslipData.find((p: any) => p.employee === `${emp.first_name} ${emp.last_name}`);
+  return sum + (calc?.nhis || 0);
+}, 0);
+if (totalNHIS > 0) {
+  await client.query(
+    `INSERT INTO journal_lines (
+      journal_entry_id, account_id, description, debit, credit,
+      source_type, source_id, source_reference
+    ) VALUES ($1, 37, $2, 0, $3, 'payroll', $4, $5)`,
+    [journalId, 'NHIS Payable', totalNHIS, runId, entryNumber]
+  );
+}
 
+// Cr Jichma Payable
+const totalJichma = employees.rows.reduce((sum: number, emp: any) => {
+  const calc = payslipData.find((p: any) => p.employee === `${emp.first_name} ${emp.last_name}`);
+  return sum + (calc?.jichma || 0);
+}, 0);
+if (totalJichma > 0) {
+  await client.query(
+    `INSERT INTO journal_lines (
+      journal_entry_id, account_id, description, debit, credit,
+      source_type, source_id, source_reference
+    ) VALUES ($1, 38, $2, 0, $3, 'payroll', $4, $5)`,
+    [journalId, 'Jichma Payable', totalJichma, runId, entryNumber]
+  );
+}
     // Link journal to payroll run
     await client.query(
       'UPDATE payroll_runs SET journal_entry_id = $1 WHERE id = $2',
