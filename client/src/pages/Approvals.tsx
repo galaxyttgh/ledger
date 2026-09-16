@@ -44,6 +44,15 @@ const Approvals = () => {
   const [multiAmount, setMultiAmount] = useState('');
   const [payrollRuns, setPayrollRuns] = useState<any[]>([]);
 const [selectedPayrollId, setSelectedPayrollId] = useState('');
+const [showPaymentModal, setShowPaymentModal] = useState(false);
+const [paymentApproval, setPaymentApproval] = useState<Approval | null>(null);
+const [expenseAccountId, setExpenseAccountId] = useState('27');
+const [bankAccountId, setBankAccountId] = useState('4');
+const [accounts, setAccounts] = useState<any[]>([]);
+const [showSubmitModal, setShowSubmitModal] = useState(false);
+const [submitType, setSubmitType] = useState('journal');
+const [submitId, setSubmitId] = useState('');
+const [availableTransactions, setAvailableTransactions] = useState<any[]>([]);
 const [steps, setSteps] = useState<{role: string}[]>([
   { role: 'manager' },
   { role: 'accountant' },
@@ -53,6 +62,27 @@ const [steps, setSteps] = useState<{role: string}[]>([
 const { user } = useAuth();
   const isHR = user?.role === 'hr_payroll';
 
+
+
+  useEffect(() => {
+  if (showSubmitModal && submitType) {
+    const endpoints: any = {
+      journal: '/journals',
+      invoice: '/invoices',
+      bill: '/bills',
+    };
+    api.get(endpoints[submitType]).then(r => setAvailableTransactions(r.data)).catch(() => setAvailableTransactions([]));
+  }
+}, [submitType, showSubmitModal]);
+  // Fetch accounts on mount
+useEffect(() => {
+  api.get('/accounts').then(r => setAccounts(r.data));
+}, []);
+
+const openPaymentModal = (a: Approval) => {
+  setPaymentApproval(a);
+  setShowPaymentModal(true);
+};
 
   useEffect(() => {
   if (multiType === 'salary') {
@@ -82,22 +112,18 @@ const { user } = useAuth();
     }
   };
 
-
-  const handleRecordPayment = async (a: Approval) => {
-  const expenseAccount = prompt('Enter expense account ID (default 27 = Office Supplies):');
-  const bankAccount = prompt('Enter bank account ID (default 4 = GTBank):');
-  
-  if (!confirm(`Record payment of ₦${Number(a.amount).toLocaleString()} for "${a.description}"?`)) return;
-  
+const handleRecordPayment = async () => {
+  if (!paymentApproval) return;
   try {
-    await api.post(`/approvals/${a.id}/record-payment`, {
-      expense_account_id: parseInt(expenseAccount || '27'),
-      bank_account_id: parseInt(bankAccount || '4'),
+    await api.post(`/approvals/${paymentApproval.id}/record-payment`, {
+      expense_account_id: parseInt(expenseAccountId),
+      bank_account_id: parseInt(bankAccountId),
     });
     toast.success('Payment recorded and posted to GL');
+    setShowPaymentModal(false);
     fetchData();
   } catch (err: any) {
-    toast.error(err.response?.data?.error || 'Failed to record payment');
+    toast.error(err.response?.data?.error || 'Failed');
   }
 };
   const handleApprove = async (stepId: number) => {
@@ -138,21 +164,20 @@ const { user } = useAuth();
     }
   };
 
-  const handleSubmitForApproval = async () => {
-    const type = prompt('Transaction type (journal/invoice/bill):');
-    const id = prompt('Transaction ID:');
-    if (!type || !id) return;
-    try {
-      await api.post('/approvals/submit', {
-        transaction_type: type,
-        transaction_id: parseInt(id),
-      });
-      toast.success('Submitted for approval');
-      fetchData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed');
-    }
-  };
+ const handleSubmitForApproval = async () => {
+  try {
+    await api.post('/approvals/submit', {
+      transaction_type: submitType,
+      transaction_id: parseInt(submitId),
+    });
+    toast.success('Submitted for approval');
+    setShowSubmitModal(false);
+    setSubmitId('');
+    fetchData();
+  } catch (err: any) {
+    toast.error(err.response?.data?.error || 'Failed');
+  }
+};
 
   const getTransactionIcon = (type: string) => {
     const icons: Record<string, string> = {
@@ -187,7 +212,7 @@ const { user } = useAuth();
             <p className="text-gray-500 mt-1 text-sm">Maker-Checker workflow</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleSubmitForApproval} className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-medium">
+            <button onClick={() => setShowSubmitModal(true)} className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-medium">
               + Submit for Approval
             </button>
             <button onClick={() => setShowMultiForm(!showMultiForm)} className="px-4 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 text-sm font-medium">
@@ -391,7 +416,7 @@ const { user } = useAuth();
                         👁️ View
                       </button>
                    {user?.role === 'accountant' && a.status === 'approved' && !a.transaction_id && a.transaction_type !== 'salary' && (
-  <button onClick={() => handleRecordPayment(a)} className="text-green-600 hover:text-green-800 text-sm font-medium">
+ <button onClick={() => openPaymentModal(a)} className="text-green-600 hover:text-green-800 text-sm font-medium">
     💰 Record
   </button>
 )}
@@ -445,16 +470,16 @@ const { user } = useAuth();
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <button onClick={() => setSelectedApproval(a)} className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium">
-                    👁️ View / Print
-                  </button>
-             {user?.role === 'accountant' && a.status === 'approved' && !a.transaction_id && a.transaction_type !== 'salary' && (
-  <button onClick={() => handleRecordPayment(a)} className="flex-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg text-sm font-medium">
-    💰 Record Payment
+              <div className="flex gap-2">
+  <button onClick={() => setSelectedApproval(a)} className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium">
+    👁️ View / Print
   </button>
-)}
-                </div>
+  {user?.role === 'accountant' && a.status === 'approved' && !a.transaction_id && a.transaction_type !== 'salary' && (
+    <button onClick={() => openPaymentModal(a)} className="flex-1 px-3 py-2 bg-green-50 text-green-600 rounded-lg text-sm font-medium">
+      💰 Record Payment
+    </button>
+  )}
+</div>
               </div>
             );
           })}
@@ -498,9 +523,9 @@ const { user } = useAuth();
                               <span className={`px-2 py-1 text-xs rounded-full ${badge.color}`}>{badge.icon} {a.status}</span>
                             </td>
 <td className="px-6 py-3">
-  {user?.role === 'accountant' && a.status === 'approved' && (
+  {user?.role === 'accountant' && a.status === 'approved' && !a.transaction_id && a.transaction_type !== 'salary' && (
     <button 
-      onClick={() => handleRecordPayment(a)}
+      onClick={() => openPaymentModal(a)}
       className="text-blue-600 hover:text-blue-800 text-sm font-medium"
     >
       💰 Record Payment
@@ -602,8 +627,88 @@ const { user } = useAuth();
     </div>
   </div>
 )}
+
+{showPaymentModal && paymentApproval && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="absolute inset-0 bg-black/50" onClick={() => setShowPaymentModal(false)} />
+    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+      <h3 className="text-lg font-bold mb-4">Record Payment</h3>
+      
+      <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm">
+        <p><span className="text-gray-500">Description:</span> <strong>{paymentApproval.description}</strong></p>
+        <p><span className="text-gray-500">Amount:</span> <strong>₦{Number(paymentApproval.amount).toLocaleString()}</strong></p>
+      </div>
+
+      <div className="space-y-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Expense Account</label>
+          <select value={expenseAccountId} onChange={e => setExpenseAccountId(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm">
+            {accounts.filter((a: any) => a.type === 'expense').map((a: any) => (
+              <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Bank Account</label>
+          <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm">
+            {accounts.filter((a: any) => a.type === 'asset' && a.code.startsWith('110')).map((a: any) => (
+              <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button onClick={handleRecordPayment} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">
+          ✓ Record Payment
+        </button>
+        <button onClick={() => setShowPaymentModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
+      </div>
+    </div>
+  </div>
+)}
+
+{showSubmitModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="absolute inset-0 bg-black/50" onClick={() => setShowSubmitModal(false)} />
+    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+      <h3 className="text-lg font-bold mb-4">Submit for Approval</h3>
+      
+      <div className="space-y-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Transaction Type</label>
+          <select value={submitType} onChange={e => { setSubmitType(e.target.value); setSubmitId(''); }} className="w-full px-3 py-2 border rounded-lg text-sm">
+            <option value="journal">Journal Entry</option>
+            <option value="invoice">Invoice</option>
+            <option value="bill">Bill</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Select Transaction</label>
+          <select value={submitId} onChange={e => setSubmitId(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm">
+            <option value="">Select...</option>
+            {availableTransactions.map((t: any) => (
+              <option key={t.id} value={t.id}>
+                {t.entry_number || t.invoice_number || t.bill_number} — {t.description}
+                {t.total ? ` — ₦${Number(t.total).toLocaleString()}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button onClick={handleSubmitForApproval} disabled={!submitId} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">
+          Submit
+        </button>
+        <button onClick={() => setShowSubmitModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancel</button>
+      </div>
+    </div>
+  </div>
+)}
     </Layout>
   );
 };
+
 
 export default Approvals;
