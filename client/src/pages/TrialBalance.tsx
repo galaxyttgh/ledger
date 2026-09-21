@@ -284,7 +284,7 @@ useEffect(() => {
                           {getTypeIcon(account.type)} {account.type}
                         </span>
                       </td>
-                      <td className="px-6 py-3 text-right font-medium text-green-700">
+                     <td className="px-6 py-3 text-right whitespace-nowrap">
                         {account.debit_balance > 0 ? `₦${Number(account.debit_balance).toLocaleString()}` : '-'}
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-red-700">

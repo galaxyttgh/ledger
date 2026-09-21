@@ -650,11 +650,14 @@ const handleRecordPayment = async () => {
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Bank Account</label>
-          <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm">
-            {accounts.filter((a: any) => a.type === 'asset' && a.code.startsWith('110')).map((a: any) => (
-              <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
-            ))}
-          </select>
+        <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)}>
+  {accounts.filter((a: any) => 
+    a.type === 'asset' && 
+    (a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash'))
+  ).map((a: any) => (
+    <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+  ))}
+</select>
         </div>
       </div>
 

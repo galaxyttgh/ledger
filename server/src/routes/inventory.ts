@@ -290,12 +290,40 @@ import pool from '../db/pool.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { periodGuard } from '../middleware/period.js';
 
+
 const router = express.Router();
 
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
 
+
+export const refreshReorderAlerts = async (client: any, itemId: number) => {
+  try {
+    // Get current stock per warehouse for this item
+    const balances = await client.query(`
+      SELECT sb.warehouse_id, sb.quantity, i.reorder_level
+      FROM stock_balances sb
+      JOIN items i ON sb.item_id = i.id
+      WHERE sb.item_id = $1
+    `, [itemId]);
+
+    // Delete existing alerts for this item
+    await client.query('DELETE FROM reorder_alerts WHERE item_id = $1', [itemId]);
+
+    // Create new alerts where stock is at or below reorder level
+    for (const b of balances.rows) {
+      if (parseFloat(b.quantity) <= b.reorder_level) {
+        await client.query(`
+          INSERT INTO reorder_alerts (item_id, warehouse_id, current_quantity, reorder_level, status)
+          VALUES ($1, $2, $3, $4, 'pending')
+        `, [itemId, b.warehouse_id, Math.floor(parseFloat(b.quantity)), b.reorder_level]);
+      }
+    }
+  } catch (error) {
+    console.error('Refresh alerts error:', error);
+  }
+};
 const calculateWeightedAverage = (currentQty: number, currentAvg: number, newQty: number, newCost: number): number => {
   if (currentQty + newQty === 0) return currentAvg || 0;
   return ((currentQty * currentAvg) + (newQty * newCost)) / (currentQty + newQty);
@@ -663,6 +691,7 @@ router.post('/receive', authMiddleware, periodGuard, async (req, res) => {
         updated_at = NOW()
     `, [item_id, warehouse_id, qty, newAvg]);
 
+    await refreshReorderAlerts(client, item_id);
     // CREATE JOURNAL ENTRY
     const entryNumber = `STK-${Date.now().toString().slice(-8)}`;
     const journal = await client.query(`
@@ -703,6 +732,7 @@ router.post('/receive', authMiddleware, periodGuard, async (req, res) => {
       ) VALUES ($1, $2, $3, CURRENT_DATE, $4)
     `, ['inventory', movement.rows[0].id, journalId, totalCost]);
 
+    
     // Audit log
     await createAuditLog(client, userId, 'STOCK_RECEIVE', 'stock_movements', movement.rows[0].id, {
       movement_number: movementNumber,
@@ -778,6 +808,8 @@ router.post('/issue', authMiddleware, periodGuard, async (req, res) => {
       WHERE item_id = $2 AND warehouse_id = $3
     `, [qty, item_id, warehouse_id]);
 
+    await refreshReorderAlerts(pool, req.body.item_id);
+ 
     // CREATE JOURNAL ENTRY
     const entryNumber = `STK-${Date.now().toString().slice(-8)}`;
     const journal = await client.query(`
@@ -828,42 +860,13 @@ router.post('/issue', authMiddleware, periodGuard, async (req, res) => {
       total_cost: totalCost
     });
 
-    await client.query('COMMIT');
-
-    // Check reorder level
-    const newBalance = await client.query(
-      'SELECT quantity FROM stock_balances WHERE item_id = $1 AND warehouse_id = $2',
-      [item_id, warehouse_id]
-    );
-
-    const currentQty = newBalance.rows.length > 0 ? parseFloat(newBalance.rows[0].quantity) : 0;
-
-    // Get reorder level
-    const item = await client.query(
-      'SELECT reorder_level FROM items WHERE id = $1',
-      [item_id]
-    );
-
-    let reorderAlert = null;
-    if (item.rows.length > 0 && currentQty <= item.rows[0].reorder_level) {
-      // Create reorder alert
-      const alert = await client.query(`
-        INSERT INTO reorder_alerts (item_id, warehouse_id, current_quantity, reorder_level)
-        VALUES ($1, $2, $3, $4)
-        RETURNING *
-      `, [item_id, warehouse_id, currentQty, item.rows[0].reorder_level]);
-      reorderAlert = alert.rows[0];
-    }
-
-    await client.query('COMMIT');
+       await client.query('COMMIT');
 
     res.status(201).json({
       ...movement.rows[0],
       journal_entry: entryNumber,
       journal_id: journalId,
-      total_cost: totalCost,
-      remaining_stock: currentQty,
-      reorder_alert: reorderAlert
+      total_cost: totalCost
     });
 
   } catch (error) {
@@ -875,113 +878,7 @@ router.post('/issue', authMiddleware, periodGuard, async (req, res) => {
   }
 });
 
-// Transfer stock
-// router.post('/transfer', authMiddleware, async (req, res) => {
-//   const client = await pool.connect();
-//   try {
-//     const { item_id, from_warehouse_id, to_warehouse_id, quantity, notes } = req.body;
-//     const userId = (req as any).userId || 1;
-//     const qty = parseFloat(quantity);
-//     const movementNumber = `TRF-${Date.now().toString().slice(-8)}`;
 
-//     await client.query('BEGIN');
-
-//     // Check source warehouse stock
-//     const sourceBalance = await client.query(
-//       'SELECT quantity, avg_cost FROM stock_balances WHERE item_id = $1 AND warehouse_id = $2',
-//       [item_id, from_warehouse_id]
-//     );
-
-//     if (sourceBalance.rows.length === 0 || parseFloat(sourceBalance.rows[0].quantity) < qty) {
-//       return res.status(400).json({ 
-//         error: 'Insufficient stock in source warehouse',
-//         available: sourceBalance.rows.length > 0 ? parseFloat(sourceBalance.rows[0].quantity) : 0
-//       });
-//     }
-
-//     const avgCost = parseFloat(sourceBalance.rows[0].avg_cost) || 0;
-//     const totalCost = qty * avgCost;
-
-//     // Check destination warehouse exists
-//     const destCheck = await client.query(
-//       'SELECT id FROM warehouses WHERE id = $1 AND is_active = true',
-//       [to_warehouse_id]
-//     );
-
-//     if (destCheck.rows.length === 0) {
-//       return res.status(400).json({ error: 'Destination warehouse not found' });
-//     }
-
-//     // Record transfer out
-//     await client.query(`
-//       INSERT INTO stock_movements (
-//         movement_number, item_id, warehouse_id, movement_type, 
-//         quantity, unit_cost, total_cost, source_warehouse_id, 
-//         destination_warehouse_id, notes, created_by
-//       ) VALUES ($1, $2, $3, 'transfer_out', $4, $5, $6, $7, $8, $9, $10)
-//     `, [movementNumber, item_id, from_warehouse_id, -qty, avgCost, totalCost, from_warehouse_id, to_warehouse_id, notes, userId]);
-
-//     // Record transfer in
-//     await client.query(`
-//       INSERT INTO stock_movements (
-//         movement_number, item_id, warehouse_id, movement_type, 
-//         quantity, unit_cost, total_cost, source_warehouse_id, 
-//         destination_warehouse_id, notes, created_by
-//       ) VALUES ($1, $2, $3, 'transfer_in', $4, $5, $6, $7, $8, $9, $10)
-//     `, [movementNumber, item_id, to_warehouse_id, qty, avgCost, totalCost, from_warehouse_id, to_warehouse_id, notes, userId]);
-
-//     // Remove from source
-//     await client.query(`
-//       UPDATE stock_balances 
-//       SET quantity = quantity - $1, updated_at = NOW()
-//       WHERE item_id = $2 AND warehouse_id = $3
-//     `, [qty, item_id, from_warehouse_id]);
-
-//     // Add to destination
-//     await client.query(`
-//       INSERT INTO stock_balances (item_id, warehouse_id, quantity, avg_cost)
-//       VALUES ($1, $2, $3, $4)
-//       ON CONFLICT (item_id, warehouse_id) DO UPDATE SET
-//         quantity = stock_balances.quantity + $3,
-//         avg_cost = CASE 
-//           WHEN stock_balances.quantity + $3 = 0 THEN stock_balances.avg_cost
-//           ELSE ((stock_balances.avg_cost * stock_balances.quantity) + ($4 * $3)) / (stock_balances.quantity + $3)
-//         END,
-//         updated_at = NOW()
-//     `, [item_id, to_warehouse_id, qty, avgCost]);
-
-//     // Audit log
-//     await createAuditLog(client, userId, 'STOCK_TRANSFER', 'stock_movements', null, {
-//       movement_number: movementNumber,
-//       item_id,
-//       from_warehouse_id,
-//       to_warehouse_id,
-//       quantity: qty
-//     });
-
-//     await client.query('COMMIT');
-
-//     res.json({
-//       message: 'Stock transferred successfully',
-//       movement_number: movementNumber,
-//       item_id,
-//       from_warehouse_id,
-//       to_warehouse_id,
-//       quantity: qty,
-//       unit_cost: avgCost,
-//       total_cost: totalCost
-//     });
-
-//   } catch (error) {
-//     await client.query('ROLLBACK');
-//     console.error('Transfer stock error:', error);
-//     res.status(500).json({ error: 'Server error' });
-//   } finally {
-//     client.release();
-//   }
-// });
-
-// Transfer stock between warehouses
 router.post('/transfer', authMiddleware, async (req, res) => {
   const client = await pool.connect();
   try {
@@ -1058,6 +955,7 @@ router.post('/transfer', authMiddleware, async (req, res) => {
         updated_at = NOW()
     `, [item_id, to_warehouse_id, qty, avgCost]);
 
+    await refreshReorderAlerts(client, item_id);
     // FIXED: Audit log with valid ID from transfer_out (NOT null)
     await createAuditLog(client, userId, 'STOCK_TRANSFER', 'stock_movements', transferOut.rows[0].id, {
       movement_number: movementNumber,
@@ -1136,6 +1034,7 @@ router.post('/adjust', authMiddleware, periodGuard, async (req, res) => {
         updated_at = NOW()
     `, [item_id, warehouse_id, qty, avgCost]);
 
+    await refreshReorderAlerts(client, item_id);
     // Audit log
     await createAuditLog(client, userId, 'STOCK_ADJUST', 'stock_movements', movement.rows[0].id, {
       movement_number: movementNumber,
@@ -1266,18 +1165,43 @@ router.get('/balances', authMiddleware, async (req, res) => {
 // REORDER ALERTS
 // ============================================
 
+// router.get('/reorder-alerts', authMiddleware, async (req, res) => {
+//   try {
+//     const result = await pool.query(`
+//       SELECT 
+//         ra.*,
+//         i.code as item_code, i.name as item_name, i.unit,
+//         w.name as warehouse_name,
+//         (i.reorder_level - ra.current_quantity) as shortage
+//       FROM reorder_alerts ra
+//       JOIN items i ON ra.item_id = i.id
+//       JOIN warehouses w ON ra.warehouse_id = w.id
+//       WHERE ra.status = 'pending'
+//       ORDER BY shortage DESC
+//     `);
+//     res.json(result.rows);
+//   } catch (error) {
+//     console.error('Get reorder alerts error:', error);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
 router.get('/reorder-alerts', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        ra.*,
-        i.code as item_code, i.name as item_name, i.unit,
-        w.name as warehouse_name,
-        (i.reorder_level - ra.current_quantity) as shortage
-      FROM reorder_alerts ra
-      JOIN items i ON ra.item_id = i.id
-      JOIN warehouses w ON ra.warehouse_id = w.id
-      WHERE ra.status = 'pending'
+        i.id,
+        i.code as item_code,
+        i.name as item_name,
+        i.unit,
+        i.reorder_level,
+        COALESCE(SUM(sb.quantity), 0) as current_quantity,
+        (i.reorder_level - COALESCE(SUM(sb.quantity), 0)) as shortage
+      FROM items i
+      LEFT JOIN stock_balances sb ON i.id = sb.item_id
+      WHERE i.is_active = true
+        AND i.reorder_level > 0
+      GROUP BY i.id, i.code, i.name, i.unit, i.reorder_level
+      HAVING COALESCE(SUM(sb.quantity), 0) <= i.reorder_level
       ORDER BY shortage DESC
     `);
     res.json(result.rows);
@@ -1286,7 +1210,6 @@ router.get('/reorder-alerts', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 // Resolve reorder alert
 router.put('/reorder-alerts/:id/resolve', authMiddleware, async (req, res) => {
   try {
@@ -1387,6 +1310,35 @@ router.get('/reports/summary', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('Summary error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// router.post('/sync-alerts', authMiddleware, async (req, res) => {
+//   try {
+//     await pool.query('DELETE FROM reorder_alerts');
+//     await pool.query(`
+//       INSERT INTO reorder_alerts (item_id, warehouse_id, current_quantity, reorder_level, status)
+//       SELECT 
+//         sb.item_id, 
+//         sb.warehouse_id, 
+//         FLOOR(sb.quantity)::INTEGER, 
+//         i.reorder_level,
+//         'pending'
+//       FROM stock_balances sb
+//       JOIN items i ON sb.item_id = i.id
+//       WHERE sb.quantity <= i.reorder_level
+//     `);
+//     res.json({ message: 'Alerts synced' });
+//   } catch (error) {
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
+router.post('/sync-alerts', authMiddleware, async (req, res) => {
+  try {
+    res.json({ message: 'Alerts computed live' });
+  } catch (error) {
     res.status(500).json({ error: 'Server error' });
   }
 });

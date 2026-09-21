@@ -52,7 +52,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, periodGuard, async (req, res) => {
   const client = await pool.connect();
   try {
-   const { customer_id, invoice_id, amount, payment_date, payment_method, reference_number, notes } = req.body;
+   const { customer_id, invoice_id, amount, payment_date, payment_method, reference_number, notes, bank_account_id } = req.body;
     const userId = (req as any).userId || 1;
     const period = (req as any).period || payment_date.substring(0, 7);
     const receiptAmount = parseFloat(amount);
@@ -60,13 +60,21 @@ router.post('/', authMiddleware, periodGuard, async (req, res) => {
 
     await client.query('BEGIN');
 
+    // Get bank's GL account
+let glAccountId = 4; // default GTBank
+if (bank_account_id) {
+  const bank = await client.query('SELECT account_id FROM bank_accounts WHERE id = $1', [bank_account_id]);
+  if (bank.rows[0]?.account_id) {
+    glAccountId = bank.rows[0].account_id;
+  }
+}
     // Create receipt
-   const receipt = await client.query(`
+const receipt = await client.query(`
   INSERT INTO receipts (
-    receipt_number, customer_id, invoice_id, amount, payment_date, payment_method, reference_number, notes
-  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    receipt_number, customer_id, invoice_id, amount, payment_date, payment_method, reference_number, notes, bank_account_id
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
   RETURNING *
-`, [receiptNumber, customer_id, invoice_id, receiptAmount, payment_date, payment_method || 'bank_transfer', reference_number || null, notes || null]);
+`, [receiptNumber, customer_id, invoice_id, receiptAmount, payment_date, payment_method || 'bank_transfer', reference_number || null, notes || null, bank_account_id || null]);
 
     const receiptId = receipt.rows[0].id;
 
@@ -85,12 +93,13 @@ router.post('/', authMiddleware, periodGuard, async (req, res) => {
     const journalId = journal.rows[0].id;
 
     // 1. Debit Bank
-    await client.query(`
-      INSERT INTO journal_lines (
-        journal_entry_id, account_id, description, debit, credit,
-        source_type, source_id, source_reference
-      ) VALUES ($1, 4, $2, $3, 0, 'receipt', $4, $5)
-    `, [journalId, `Receipt ${receiptNumber}`, receiptAmount, receiptId, receiptNumber]);
+// 1. Debit Bank
+await client.query(`
+  INSERT INTO journal_lines (
+    journal_entry_id, account_id, description, debit, credit,
+    source_type, source_id, source_reference
+  ) VALUES ($1, $2, $3, $4, 0, 'receipt', $5, $6)
+`, [journalId, glAccountId, `Receipt ${receiptNumber}`, receiptAmount, receiptId, receiptNumber]);
 
     // 2. Credit Accounts Receivable
     await client.query(`

@@ -64,14 +64,37 @@ const Inventory = () => {
   const [transferQty, setTransferQty] = useState('');
   const [transferNotes, setTransferNotes] = useState('');
 
+// useEffect(() => {
+//   const init = async () => {
+//     try {
+//       await api.post('/inventory/sync-alerts');
+//     } catch (e) {
+//       console.error('Sync failed');
+//     }
+//     fetchItems();
+//     fetchWarehouses();
+//     fetchCategories();
+//     fetchMovements();
+//     fetchAlerts();
+//     fetchTransfers();
+//   };
+//   init();
+// }, []);
+
+useEffect(() => {
+  fetchItems();
+  fetchWarehouses();
+  fetchCategories();
+  fetchMovements();
+  fetchAlerts();
+  fetchTransfers();
+}, []);
+
   useEffect(() => {
-    fetchItems();
-    fetchWarehouses();
-    fetchCategories();
-    fetchMovements();
-    fetchAlerts();
-    fetchTransfers();
-  }, []);
+  setShowForm(false);
+  setShowMovement(false);
+  setShowTransfer(false);
+}, [activeTab]);
 
   const fetchItems = async () => {
     try {
@@ -236,89 +259,95 @@ const handleMovement = async (e: React.FormEvent) => {
     <Layout>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Inventory Management</h2>
-        <p className="text-gray-500 mt-1 text-sm">Track stock, movements, transfers, and reorder alerts</p>
+<p className="text-gray-500 mt-1 text-sm">Track products, stock movements, and stores</p>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm p-4 text-center">
-          <p className="text-sm text-gray-500">Total Items</p>
-          <p className="text-2xl font-bold text-gray-800">{items.length}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-4 text-center">
-          <p className="text-sm text-gray-500">Stock Value</p>
-          <p className="text-2xl font-bold text-blue-900">₦{totalStockValue.toLocaleString()}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-4 text-center">
-          <p className="text-sm text-gray-500">Low Stock Alerts</p>
-          <p className={`text-2xl font-bold ${lowStockCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {lowStockCount}
-          </p>
-        </div>
-      </div>
+  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <div className="bg-white rounded-xl shadow-sm p-4 text-center">
+    <p className="text-sm text-gray-500">Total Products</p>
+    <p className="text-2xl font-bold text-gray-800">{items.length}</p>
+  </div>
+  <div className="bg-white rounded-xl shadow-sm p-4 text-center">
+    <p className="text-sm text-gray-500">Units in Stock</p>
+    <p className="text-2xl font-bold text-gray-800">
+      {Math.floor(items.reduce((sum, i) => sum + (i.stock_qty || 0), 0))}
+    </p>
+  </div>
+  <div className="bg-white rounded-xl shadow-sm p-4 text-center">
+    <p className="text-sm text-gray-500">Stock Value</p>
+    <p className="text-2xl font-bold text-blue-900">₦{totalStockValue.toLocaleString()}</p>
+  </div>
+  <div className="bg-white rounded-xl shadow-sm p-4 text-center">
+    <p className="text-sm text-gray-500">Low Stock Alerts</p>
+    <p className={`text-2xl font-bold ${lowStockCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+      {lowStockCount}
+    </p>
+  </div>
+</div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        <button 
-          onClick={() => setActiveTab('items')} 
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            activeTab === 'items' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
-          }`}
-        >
-          📦 Items
-        </button>
-        <button 
-          onClick={() => setActiveTab('movements')} 
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            activeTab === 'movements' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
-          }`}
-        >
-          🔄 Movements
-        </button>
-        <button 
-          onClick={() => setActiveTab('transfers')} 
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            activeTab === 'transfers' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
-          }`}
-        >
-          📦 Transfers
-        </button>
-        <button 
-          onClick={() => setActiveTab('alerts')} 
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            activeTab === 'alerts' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
-          }`}
-        >
-          ⚠️ Alerts ({lowStockCount})
-        </button>
-      </div>
+     <div className="flex gap-2 mb-4 flex-wrap">
+  <button 
+    onClick={() => setActiveTab('items')} 
+    className={`px-4 py-2 rounded-lg text-sm font-medium ${
+      activeTab === 'items' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
+    }`}
+  >
+    📦 Products
+  </button>
+  <button 
+    onClick={() => setActiveTab('movements')} 
+    className={`px-4 py-2 rounded-lg text-sm font-medium ${
+      activeTab === 'movements' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
+    }`}
+  >
+    🔄 Stock History
+  </button>
+  <button 
+    onClick={() => setActiveTab('transfers')} 
+    className={`px-4 py-2 rounded-lg text-sm font-medium ${
+      activeTab === 'transfers' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
+    }`}
+  >
+    📦 Store Transfers
+  </button>
+  <button 
+    onClick={() => setActiveTab('alerts')} 
+    className={`px-4 py-2 rounded-lg text-sm font-medium ${
+      activeTab === 'alerts' ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'
+    }`}
+  >
+    ⚠️ Reorder Alerts ({lowStockCount})
+  </button>
+</div>
 
       {/* Action Buttons */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        <button 
-          onClick={() => setShowForm(!showForm)} 
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-        >
-          + Add Item
-        </button>
-        <button 
-          onClick={() => setShowMovement(!showMovement)} 
-          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
-        >
-          📥 Stock Movement
-        </button>
-        <button 
-          onClick={() => setShowTransfer(!showTransfer)} 
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700"
-        >
-          🔄 Transfer Stock
-        </button>
-      </div>
+ <div className="flex gap-2 mb-4 flex-wrap">
+  <button 
+    onClick={() => { setShowForm(!showForm); setShowMovement(false); setShowTransfer(false); }} 
+    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+  >
+    + Add Product
+  </button>
+  <button 
+    onClick={() => { setShowMovement(!showMovement); setShowForm(false); setShowTransfer(false); }} 
+    className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
+  >
+    📥 Record Stock In/Out
+  </button>
+  <button 
+    onClick={() => { setShowTransfer(!showTransfer); setShowForm(false); setShowMovement(false); }} 
+    className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700"
+  >
+    🔄 Move Between Stores
+  </button>
+</div>
 
       {/* Add Item Form */}
       {showForm && (
         <div className="bg-white rounded-xl shadow-sm p-6 mb-4">
-          <h3 className="font-semibold mb-4">Add New Item</h3>
+        <h3 className="font-semibold mb-4">Add New Product</h3>
           <form onSubmit={handleCreateItem} className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <input 
               type="text" 
@@ -384,7 +413,7 @@ const handleMovement = async (e: React.FormEvent) => {
       {/* Stock Movement Form */}
       {showMovement && (
         <div className="bg-white rounded-xl shadow-sm p-6 mb-4">
-          <h3 className="font-semibold mb-4">Record Stock Movement</h3>
+          <h3 className="font-semibold mb-4">Record Stock In / Out</h3>
           <form onSubmit={handleMovement} className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <select 
               value={moveItemId} 
@@ -404,15 +433,15 @@ const handleMovement = async (e: React.FormEvent) => {
               <option value="">Warehouse</option>
               {warehouses.map((w: any) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
-            <select 
-              value={moveType} 
-              onChange={e => setMoveType(e.target.value)} 
-              className="px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="receive">Receive</option>
-              <option value="issue">Issue</option>
-              <option value="adjust">Adjust</option>
-            </select>
+           <select 
+  value={moveType} 
+  onChange={e => setMoveType(e.target.value)} 
+  className="px-3 py-2 border rounded-lg text-sm"
+>
+  <option value="receive">📥 Receive (Stock In)</option>
+  <option value="issue">📤 Issue (Stock Out)</option>
+  <option value="adjust">⚙️ Adjust</option>
+</select>
             <input 
               type="number" 
               value={moveQty} 
@@ -448,7 +477,7 @@ const handleMovement = async (e: React.FormEvent) => {
       {/* Transfer Form */}
       {showTransfer && (
         <div className="bg-white rounded-xl shadow-sm p-6 mb-4">
-          <h3 className="font-semibold mb-4">Transfer Stock Between Warehouses</h3>
+         <h3 className="font-semibold mb-4">Move Stock Between Stores</h3>
           <form onSubmit={handleTransfer} className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <select 
               value={transferItemId} 
@@ -645,7 +674,7 @@ const handleMovement = async (e: React.FormEvent) => {
       )}
 
       {/* Alerts Tab */}
-      {activeTab === 'alerts' && (
+      {/* {activeTab === 'alerts' && (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {alerts.length === 0 ? (
             <div className="p-12 text-center text-gray-500">✅ All items sufficiently stocked</div>
@@ -657,16 +686,40 @@ const handleMovement = async (e: React.FormEvent) => {
                     <p className="font-medium">{a.item_name}</p>
                     <p className="text-xs text-gray-500">{a.warehouse_name || 'All warehouses'}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-red-600 font-bold">{a.current_quantity || 0} left</p>
-                    <p className="text-xs text-gray-400">Reorder at {a.reorder_level}</p>
-                  </div>
+                <div className="text-right">
+  <p className="text-red-600 font-bold">{Math.floor(Number(a.current_quantity) || 0)} left at {a.warehouse_name}</p>
+  <p className="text-xs text-gray-400">Reorder at {a.reorder_level}</p>
+</div>
                 </div>
               ))}
             </div>
           )}
         </div>
-      )}
+      )} */}
+      {activeTab === 'alerts' && (
+  <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+    {alerts.length === 0 ? (
+      <div className="p-12 text-center text-gray-500">✅ All items sufficiently stocked</div>
+    ) : (
+      <div className="p-6">
+        {alerts.map((a: any) => (
+          <div key={a.id} className="flex justify-between items-center py-3 border-b last:border-0">
+            <div>
+              <p className="font-medium">{a.item_name}</p>
+              <p className="text-xs text-gray-500">{a.item_code}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-red-600 font-bold">
+                {Math.floor(Number(a.current_quantity))} {a.unit} left
+              </p>
+              <p className="text-xs text-gray-400">Reorder at {a.reorder_level}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
     </Layout>
   );
 };

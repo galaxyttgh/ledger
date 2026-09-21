@@ -233,6 +233,53 @@ router.post('/', authMiddleware, periodGuard, async (req, res) => {
 
        await client.query('COMMIT');
 
+       // Auto-issue stock if item selected
+if (req.body.item_id && req.body.quantity) {
+  try {
+    const item = await pool.query('SELECT * FROM items WHERE id = $1', [req.body.item_id]);
+    if (item.rows.length > 0) {
+      const avgCost = parseFloat(item.rows[0].cost_price);
+      const qty = parseInt(req.body.quantity);
+      const totalCost = qty * avgCost;
+
+      const movementNumber = `INV-ISS-${Date.now().toString().slice(-8)}`;
+      const movement = await pool.query(`
+        INSERT INTO stock_movements (
+          movement_number, item_id, warehouse_id, movement_type, 
+          quantity, unit_cost, total_cost, reference, notes, created_by
+        ) VALUES ($1, $2, 1, 'issue', $3, $4, $5, $6, $7, 1)
+        RETURNING *
+      `, [movementNumber, req.body.item_id, qty, avgCost, totalCost, invoiceNumber, `Auto-issue from invoice ${invoiceNumber}`]);
+
+      await pool.query(`
+        UPDATE stock_balances 
+        SET quantity = quantity - $1, updated_at = NOW()
+        WHERE item_id = $2 AND warehouse_id = 1
+      `, [qty, req.body.item_id]);
+
+      const issueEntryNumber = `STK-${Date.now().toString().slice(-8)}`;
+      const issueJournal = await pool.query(`
+        INSERT INTO journal_entries (entry_number, description, entry_date, period, status, created_by)
+        VALUES ($1, $2, $3, $4, 'posted', 1)
+        RETURNING id
+      `, [issueEntryNumber, `Stock Issue - Invoice ${invoiceNumber}`, invoice_date, period]);
+
+      const issueJournalId = issueJournal.rows[0].id;
+
+      await pool.query(`
+        INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit, source_type, source_id, source_reference)
+        VALUES ($1, 32, $2, $3, 0, 'inventory', $4, $5)
+      `, [issueJournalId, `COGS - ${movementNumber}`, totalCost, movement.rows[0].id, movementNumber]);
+
+      await pool.query(`
+        INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit, source_type, source_id, source_reference)
+        VALUES ($1, 31, $2, 0, $3, 'inventory', $4, $5)
+      `, [issueJournalId, `Inventory Reduction - ${movementNumber}`, totalCost, movement.rows[0].id, movementNumber]);
+    }
+  } catch (stockError) {
+    console.error('Auto stock issue failed:', stockError);
+  }
+}
     // Send invoice email to customer
     try {
       const customerResult = await client.query('SELECT email, name FROM customers WHERE id = $1', [customer_id]);

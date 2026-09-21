@@ -22,11 +22,21 @@ const InvoiceForm = () => {
   const [branches, setBranches] = useState<any[]>([]);
   const [branchId, setBranchId] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+const [items, setItems] = useState<any[]>([]);
+const [linkInventory, setLinkInventory] = useState(false);
+const [selectedItemId, setSelectedItemId] = useState('');
+const [itemQuantity, setItemQuantity] = useState('');
 
   useEffect(() => {
     fetchCustomers();
     fetchBranches();
   }, []);
+
+  useEffect(() => {
+  fetchCustomers();
+  fetchBranches();
+  api.get('/inventory/items').then(r => setItems(r.data)).catch(() => {});
+}, []);
 
   const fetchBranches = async () => {
     try {
@@ -75,7 +85,7 @@ const InvoiceForm = () => {
     setLoading(true);
 
     try {
-     await api.post('/invoices', {
+  await api.post('/invoices', {
   customer_id: parseInt(customerId),
   invoice_date: invoiceDate,
   due_date: dueDate,
@@ -83,6 +93,8 @@ const InvoiceForm = () => {
   subtotal: parseFloat(amount),
   tax_code: 'VAT-STANDARD',
   branch_id: branchId ? parseInt(branchId) : null,
+  item_id: linkInventory && selectedItemId ? parseInt(selectedItemId) : null,
+  quantity: linkInventory && itemQuantity ? parseInt(itemQuantity) : null,
 });
       toast.success('Invoice created successfully!');
       navigate('/invoices');
@@ -317,6 +329,108 @@ const InvoiceForm = () => {
             )}
           </div>
 
+{/* <div className="mb-6 border-t pt-4">
+<label className="flex items-center gap-2 mb-3 cursor-pointer">
+  <input 
+    type="checkbox" 
+    checked={linkInventory} 
+    onChange={(e) => setLinkInventory(e.target.checked)} 
+  />
+  <span className="text-sm font-medium">
+    This invoice includes a physical product (reduces stock)
+  </span>
+</label>
+
+  {linkInventory && (
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium mb-1">Select Product</label>
+        <select 
+          value={selectedItemId} 
+          onChange={(e) => setSelectedItemId(e.target.value)} 
+          className="w-full px-3 py-2 border rounded-lg"
+        >
+          <option value="">Select item...</option>
+          {items.map((i: any) => (
+            <option key={i.id} value={i.id}>
+              {i.name} (Stock: {i.stock_qty})
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Quantity</label>
+        <input 
+          type="number" 
+          value={itemQuantity} 
+          onChange={(e) => setItemQuantity(e.target.value)} 
+          className="w-full px-3 py-2 border rounded-lg" 
+          placeholder="0" 
+          min="1" 
+        />
+      </div>
+    </div>
+  )}
+</div> */}
+
+<div className="mb-6 border-t pt-4">
+  <label className="flex items-center gap-2 mb-3 cursor-pointer">
+    <input 
+      type="checkbox" 
+      checked={linkInventory} 
+      onChange={(e) => setLinkInventory(e.target.checked)} 
+    />
+    <span className="text-sm font-medium">
+      This invoice includes a physical product (reduces stock)
+    </span>
+  </label>
+  
+  {linkInventory && (
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium mb-1">Select Product</label>
+        <select 
+          value={selectedItemId} 
+          onChange={(e) => setSelectedItemId(e.target.value)} 
+          className="w-full px-3 py-2 border rounded-lg"
+        >
+          <option value="">Select item...</option>
+          {items.map((i: any) => (
+            <option key={i.id} value={i.id}>
+              {i.name} (Stock: {i.stock_qty})
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Quantity</label>
+        <input 
+          type="number" 
+          value={itemQuantity} 
+          onChange={(e) => setItemQuantity(e.target.value)} 
+          className="w-full px-3 py-2 border rounded-lg" 
+          placeholder="0" 
+          min="1" 
+        />
+      </div>
+    </div>
+  )}
+
+  {linkInventory && selectedItemId && amount && (() => {
+    const selectedItem = items.find((i: any) => i.id === parseInt(selectedItemId));
+    const costPrice = selectedItem ? Number(selectedItem.cost_price) : 0;
+    const invoiceAmount = parseFloat(amount) || 0;
+    const willBeLoss = invoiceAmount < costPrice;
+    
+    return willBeLoss ? (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
+        <p className="text-sm text-yellow-800">
+          ⚠️ Warning: Invoice amount (₦{invoiceAmount.toLocaleString()}) is less than cost price (₦{costPrice.toLocaleString()}). This will record a loss.
+        </p>
+      </div>
+    ) : null;
+  })()}
+</div>
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
             <button

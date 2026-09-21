@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
 import Layout from '../components/Layout';
+import toast from 'react-hot-toast';
 
 interface BankAccount {
   id: number;
@@ -8,6 +9,7 @@ interface BankAccount {
   account_number: string;
   bank_name: string;
   current_balance: number;
+  account_id: number | null; // GL account ID, can be null if not linked
 }
 
 interface BankTransaction {
@@ -41,6 +43,20 @@ const BankReconciliation = () => {
   const [matchLoading, setMatchLoading] = useState(false);
   const [selectedTxn, setSelectedTxn] = useState<BankTransaction | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'matched' | 'unmatched'>('all');
+
+  const [glAccounts, setGlAccounts] = useState<any[]>([]);
+const [showBankForm, setShowBankForm] = useState(false);
+const [newBankName, setNewBankName] = useState('');
+const [newBankCode, setNewBankCode] = useState('');
+const [newBankAccountNumber, setNewBankAccountNumber] = useState('');
+const [newBankGlAccountId, setNewBankGlAccountId] = useState('');
+
+
+useEffect(() => {
+  api.get('/accounts').then(r => {
+    setGlAccounts(r.data.filter((a: any) => a.type === 'asset' && a.code.startsWith('11')));
+  });
+}, []);
 
   useEffect(() => {
     fetchAccounts();
@@ -207,7 +223,96 @@ const BankReconciliation = () => {
             </p>
           )}
         </div>
+        <div className="flex justify-end mb-3">
+  <button 
+    onClick={() => setShowBankForm(!showBankForm)} 
+    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+  >
+    + Add Bank Account
+  </button>
+</div>
 
+{showBankForm && (
+  <div className="bg-white rounded-xl shadow-sm p-6 mb-4">
+    <h3 className="font-semibold mb-4">Add New Bank Account</h3>
+    <div className="grid grid-cols-2 gap-4 mb-4">
+      <input 
+        type="text" 
+        value={newBankName} 
+        onChange={(e) => setNewBankName(e.target.value)} 
+        placeholder="Bank account name (e.g., Access Bank Operating)" 
+        className="px-3 py-2 border rounded-lg text-sm" 
+      />
+      <input 
+        type="text" 
+        value={newBankCode} 
+        onChange={(e) => setNewBankCode(e.target.value)} 
+        placeholder="Bank name (e.g., Access Bank)" 
+        className="px-3 py-2 border rounded-lg text-sm" 
+      />
+      <input 
+        type="text" 
+        value={newBankAccountNumber} 
+        onChange={(e) => setNewBankAccountNumber(e.target.value)} 
+        placeholder="Account number" 
+        className="px-3 py-2 border rounded-lg text-sm" 
+      />
+      <select 
+        value={newBankGlAccountId} 
+        onChange={(e) => setNewBankGlAccountId(e.target.value)} 
+        className="px-3 py-2 border rounded-lg text-sm"
+      >
+        <option value="">Link to GL Account (optional)</option>
+        {glAccounts.map((a: any) => (
+          <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+        ))}
+      </select>
+    </div>
+    <div className="flex gap-2">
+      <button 
+        onClick={async () => {
+          if (!newBankName || !newBankCode) {
+            toast.error('Name and bank required');
+            return;
+          }
+          try {
+            await api.post('/banking/accounts', {
+              name: newBankName,
+              bank_name: newBankCode,
+              account_number: newBankAccountNumber,
+              account_id: newBankGlAccountId ? parseInt(newBankGlAccountId) : null,
+            });
+            toast.success('Bank account added');
+            setShowBankForm(false);
+            setNewBankName('');
+            setNewBankCode('');
+            setNewBankAccountNumber('');
+            setNewBankGlAccountId('');
+            fetchAccounts();
+          } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Failed');
+          }
+        }} 
+        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm"
+      >
+        Save Bank Account
+      </button>
+      <button 
+        onClick={() => setShowBankForm(false)} 
+        className="px-4 py-2 border rounded-lg text-sm"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+)}
+{selectedAccountData && !selectedAccountData.account_id && (
+  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+    <p className="text-sm text-yellow-800">
+      ⚠️ This bank account is not linked to a GL account. Auto-match will fail. Please link it via "Add Bank Account".
+    </p>
+  </div>
+)}
         {/* Import */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Import Statement (CSV)</label>

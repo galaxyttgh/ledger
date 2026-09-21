@@ -3,6 +3,7 @@ import pool from '../db/pool.js';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -194,42 +195,92 @@ router.get('/summary', async (req, res) => {
   }
 });
 
-// Auto-match bank transactions to journal entries
+// Auto-match bank transactions to journal ent
+// Auto-match bank transactions with fuzzy logic
 // router.post('/auto-match', async (req, res) => {
 //   try {
-//     const { bank_account_id } = req.body;
+//     const { bank_account_id, tolerance = 100 } = req.body;
 
-//     // Get unmatched bank transactions
 //     const unmatched = await pool.query(
 //       `SELECT * FROM bank_transactions WHERE bank_account_id = $1 AND status = 'unmatched'`,
 //       [bank_account_id]
 //     );
 
 //     let matched = 0;
+// for (const txn of unmatched.rows) {
+//   const txnAmount = Math.abs(txn.amount);
+//   let match: any = { rows: [] };
 
-//     for (const txn of unmatched.rows) {
-//       // Try exact amount match
-//       const matches = await pool.query(`
-//         SELECT je.id, je.entry_number, 
-//                ABS(COALESCE(SUM(jl.debit), 0) - $1) as amount_diff
-//         FROM journal_entries je
-//         JOIN journal_lines jl ON je.id = jl.journal_entry_id
-//         WHERE je.status = 'posted'
-//         GROUP BY je.id, je.entry_number
-//         HAVING ABS(COALESCE(SUM(jl.debit), 0) - $1) < 0.01
-//         LIMIT 1
-//       `, [Math.abs(txn.amount)]);
+//   // 1. Try exact match
+//   match = await pool.query(`
+//     SELECT je.id, je.entry_number,
+//            ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) as amount_diff
+//     FROM journal_entries je
+//     JOIN journal_lines jl ON je.id = jl.journal_entry_id
+//     JOIN accounts a ON jl.account_id = a.id
+//     WHERE je.status = 'posted'
+//       AND a.code = '1102'
+//       AND je.id NOT IN (SELECT matched_journal_id FROM bank_transactions WHERE matched_journal_id IS NOT NULL)
+//       AND ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) <= $2
+//     ORDER BY amount_diff ASC
+//     LIMIT 1
+//   `, [txnAmount, tolerance]);
 
-//       if (matches.rows.length > 0) {
-//         // Auto-match
-//         await pool.query(
-//           `UPDATE bank_transactions SET matched_journal_id = $1, status = 'matched' WHERE id = $2`,
-//           [matches.rows[0].id, txn.id]
-//         );
-//         matched++;
-//       }
-//     }
+//   // 2. Try WHT-adjusted match (bank shows gross, journal shows net after WHT)
+//   if (match.rows.length === 0) {
+//     match = await pool.query(`
+//       SELECT je.id, je.entry_number,
+//              ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) as amount_diff
+//       FROM journal_entries je
+//       JOIN journal_lines jl ON je.id = jl.journal_entry_id
+//       JOIN accounts a ON jl.account_id = a.id
+//       WHERE je.status = 'posted'
+//         AND a.code = '1102'
+//         AND je.id NOT IN (SELECT matched_journal_id FROM bank_transactions WHERE matched_journal_id IS NOT NULL)
+//         AND ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) <= $2
+//       ORDER BY amount_diff ASC
+//       LIMIT 1
+//     `, [txnAmount * 0.95, 15000]); // 5% WHT tolerance, up to ₦15,000
+//   }
 
+//   // 3. Try reference match
+//   if (match.rows.length === 0 && txn.reference) {
+//     match = await pool.query(`
+//       SELECT je.id, je.entry_number, 0 as amount_diff
+//       FROM journal_entries je
+//       WHERE je.status = 'posted'
+//         AND je.description ILIKE $1
+//         AND je.id NOT IN (SELECT matched_journal_id FROM bank_transactions WHERE matched_journal_id IS NOT NULL)
+//       LIMIT 1
+//     `, [`%${txn.reference}%`]);
+//   }
+
+//   // 4. Try date proximity match
+//   if (match.rows.length === 0) {
+//     match = await pool.query(`
+//       SELECT je.id, je.entry_number,
+//              ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) as amount_diff
+//       FROM journal_entries je
+//       JOIN journal_lines jl ON je.id = jl.journal_entry_id
+//       JOIN accounts a ON jl.account_id = a.id
+//       WHERE je.status = 'posted'
+//         AND a.code = '1102'
+//         AND je.entry_date BETWEEN $2::date - 2 AND $2::date + 2
+//         AND je.id NOT IN (SELECT matched_journal_id FROM bank_transactions WHERE matched_journal_id IS NOT NULL)
+//         AND ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) <= $3
+//       ORDER BY amount_diff ASC
+//       LIMIT 1
+//     `, [txnAmount, txn.transaction_date, 500]);
+//   }
+
+//   if (match.rows.length > 0) {
+//     await pool.query(
+//       `UPDATE bank_transactions SET matched_journal_id = $1, status = 'matched' WHERE id = $2`,
+//       [match.rows[0].id, txn.id]
+//     );
+//     matched++;
+//   }
+// }
 //     res.json({ 
 //       message: `Auto-matched ${matched} of ${unmatched.rows.length} transactions`,
 //       matched,
@@ -241,10 +292,21 @@ router.get('/summary', async (req, res) => {
 //     res.status(500).json({ error: 'Auto-match failed' });
 //   }
 // });
-// Auto-match bank transactions with fuzzy logic
 router.post('/auto-match', async (req, res) => {
   try {
     const { bank_account_id, tolerance = 100 } = req.body;
+
+    // Get the GL account linked to this bank
+    const bankAcct = await pool.query(
+      'SELECT account_id FROM bank_accounts WHERE id = $1',
+      [bank_account_id]
+    );
+
+    const glAccountId = bankAcct.rows[0]?.account_id;
+
+    if (!glAccountId) {
+      return res.status(400).json({ error: 'Bank account not linked to a GL account. Please link it first.' });
+    }
 
     const unmatched = await pool.query(
       `SELECT * FROM bank_transactions WHERE bank_account_id = $1 AND status = 'unmatched'`,
@@ -255,22 +317,39 @@ router.post('/auto-match', async (req, res) => {
 
     for (const txn of unmatched.rows) {
       const txnAmount = Math.abs(txn.amount);
-      
-      // Try exact match first
-      let match = await pool.query(`
+      let match: any = { rows: [] };
+
+      // 1. Try exact match
+      match = await pool.query(`
         SELECT je.id, je.entry_number,
-               ABS(COALESCE(SUM(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END), 0) - $1) as amount_diff
+               ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) as amount_diff
         FROM journal_entries je
         JOIN journal_lines jl ON je.id = jl.journal_entry_id
         WHERE je.status = 'posted'
+          AND jl.account_id = $2
           AND je.id NOT IN (SELECT matched_journal_id FROM bank_transactions WHERE matched_journal_id IS NOT NULL)
-        GROUP BY je.id, je.entry_number
-        HAVING ABS(COALESCE(SUM(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END), 0) - $1) <= $2
+          AND ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) <= $3
         ORDER BY amount_diff ASC
         LIMIT 1
-      `, [txnAmount, tolerance]);
+      `, [txnAmount, glAccountId, tolerance]);
 
-      // If no amount match, try fuzzy reference match
+      // 2. WHT-adjusted match
+      if (match.rows.length === 0) {
+        match = await pool.query(`
+          SELECT je.id, je.entry_number,
+                 ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) as amount_diff
+          FROM journal_entries je
+          JOIN journal_lines jl ON je.id = jl.journal_entry_id
+          WHERE je.status = 'posted'
+            AND jl.account_id = $2
+            AND je.id NOT IN (SELECT matched_journal_id FROM bank_transactions WHERE matched_journal_id IS NOT NULL)
+            AND ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) <= $3
+          ORDER BY amount_diff ASC
+          LIMIT 1
+        `, [txnAmount * 0.95, glAccountId, 15000]);
+      }
+
+      // 3. Reference match
       if (match.rows.length === 0 && txn.reference) {
         match = await pool.query(`
           SELECT je.id, je.entry_number, 0 as amount_diff
@@ -282,21 +361,21 @@ router.post('/auto-match', async (req, res) => {
         `, [`%${txn.reference}%`]);
       }
 
-      // If still no match, try date proximity (±2 days)
+      // 4. Date proximity
       if (match.rows.length === 0) {
         match = await pool.query(`
           SELECT je.id, je.entry_number,
-                 ABS(COALESCE(SUM(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END), 0) - $1) as amount_diff
+                 ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) as amount_diff
           FROM journal_entries je
           JOIN journal_lines jl ON je.id = jl.journal_entry_id
           WHERE je.status = 'posted'
-            AND je.entry_date BETWEEN $2::date - 2 AND $2::date + 2
+            AND jl.account_id = $2
+            AND je.entry_date BETWEEN $3::date - 2 AND $3::date + 2
             AND je.id NOT IN (SELECT matched_journal_id FROM bank_transactions WHERE matched_journal_id IS NOT NULL)
-          GROUP BY je.id, je.entry_number
-          HAVING ABS(COALESCE(SUM(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END), 0) - $1) <= $3
+            AND ABS(CASE WHEN jl.debit > 0 THEN jl.debit ELSE jl.credit END - $1) <= $4
           ORDER BY amount_diff ASC
           LIMIT 1
-        `, [txnAmount, txn.transaction_date, tolerance * 5]);
+        `, [txnAmount, glAccountId, txn.transaction_date, 500]);
       }
 
       if (match.rows.length > 0) {
@@ -319,7 +398,6 @@ router.post('/auto-match', async (req, res) => {
     res.status(500).json({ error: 'Auto-match failed' });
   }
 });
-
 // Get exception queue (unmatched after auto-match)
 router.get('/exceptions', async (req, res) => {
   try {
@@ -349,6 +427,62 @@ router.post('/certify', async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ error: 'Certification failed' });
+  }
+});
+
+// Create new bank account
+router.post('/accounts', authMiddleware, async (req, res) => {
+  try {
+    const { name, account_number, bank_name, account_id } = req.body;
+
+    if (!name || !bank_name) {
+      return res.status(400).json({ error: 'Name and bank name are required' });
+    }
+
+    // Check if GL account exists
+    if (account_id) {
+      const glCheck = await pool.query('SELECT id FROM accounts WHERE id = $1 AND type = $2', [account_id, 'asset']);
+      if (glCheck.rows.length === 0) {
+        return res.status(400).json({ error: 'Invalid GL account selected' });
+      }
+    }
+
+    const result = await pool.query(`
+      INSERT INTO bank_accounts (name, account_number, bank_name, current_balance, account_id)
+      VALUES ($1, $2, $3, 0, $4)
+      RETURNING *
+    `, [name, account_number, bank_name, account_id || null]);
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Create bank error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update bank account (link to GL account)
+router.put('/accounts/:id', authMiddleware, async (req, res) => {
+  try {
+    const { name, account_number, bank_name, account_id } = req.body;
+
+    const result = await pool.query(`
+      UPDATE bank_accounts SET
+        name = COALESCE($1, name),
+        account_number = COALESCE($2, account_number),
+        bank_name = COALESCE($3, bank_name),
+        account_id = $4
+      WHERE id = $5
+      RETURNING *
+    `, [name, account_number, bank_name, account_id || null, req.params.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Bank account not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Update bank error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
