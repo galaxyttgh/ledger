@@ -81,20 +81,37 @@ const Assets = () => {
     }
   };
 
+  // const handleDepreciate = async () => {
+  //   setDepreciating(true);
+  //   setMessage('');
+  //   try {
+  //     const response = await api.post('/assets/depreciate');
+  //     setMessage(`✅ ${response.data.message} — ₦${response.data.total_depreciation.toLocaleString()}`);
+  //     fetchAssets();
+  //   } catch (error: any) {
+  //     setMessage('❌ Depreciation failed');
+  //     toast.error(error.response?.data?.error || 'Depreciation failed');
+  //   } finally {
+  //     setDepreciating(false);
+  //   }
+  // };
+
   const handleDepreciate = async () => {
-    setDepreciating(true);
-    setMessage('');
-    try {
-      const response = await api.post('/assets/depreciate');
-      setMessage(`✅ ${response.data.message} — ₦${response.data.total_depreciation.toLocaleString()}`);
-      fetchAssets();
-    } catch (error: any) {
-      setMessage('❌ Depreciation failed');
-      toast.error(error.response?.data?.error || 'Depreciation failed');
-    } finally {
-      setDepreciating(false);
-    }
-  };
+  const now = new Date();
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const period = `${months[now.getMonth()]}-${now.getFullYear()}`;
+
+  setDepreciating(true);
+  try {
+    const response = await api.post('/assets/depreciate', { period, months: 1 });
+    setMessage(`✅ ${response.data.message} — ₦${response.data.total_depreciation.toLocaleString()}`);
+    fetchAssets();
+  } catch (error) {
+    setMessage('❌ Depreciation failed');
+  } finally {
+    setDepreciating(false);
+  }
+};
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this asset? This action cannot be undone.')) return;

@@ -121,7 +121,12 @@ router.get('/:id', async (req, res) => {
 router.post('/depreciate', periodGuard, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { period, months = 1 } = req.body;
+    // const { period, months = 1 } = req.body;
+    const now = new Date();
+const months_arr = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const defaultPeriod = `${months_arr[now.getMonth()]}-${now.getFullYear()}`;
+const { period = defaultPeriod, months = 1 } = req.body;
+
     const userId = (req as any).userId || 1;
 
     await client.query('BEGIN');
@@ -324,41 +329,52 @@ router.post('/:id/dispose', periodGuard, async (req, res) => {
 
     const journalId = journal.rows[0].id;
 
-    // Dr Bank (Proceeds)
-    await client.query(
-      `INSERT INTO journal_lines (
-        journal_entry_id, account_id, description, debit, credit,
-        source_type, source_id, source_reference
-      ) VALUES ($1, 4, $2, $3, 0, 'asset', $4, $5)`,
-      [journalId, 'Bank - Asset Disposal', disposalAmount, req.params.id, entryNumber]
-    );
+// Dr Bank (Proceeds)
+await client.query(
+  `INSERT INTO journal_lines (
+    journal_entry_id, account_id, description, debit, credit,
+    source_type, source_id, source_reference
+  ) VALUES ($1, 4, $2, $3, 0, 'asset', $4, $5)`,
+  [journalId, 'Bank - Asset Disposal', disposalAmount, req.params.id, entryNumber]
+);
 
-    // Cr Asset (Current Value)
-    await client.query(
-      `INSERT INTO journal_lines (
-        journal_entry_id, account_id, description, debit, credit,
-        source_type, source_id, source_reference
-      ) VALUES ($1, 8, $2, 0, $3, 'asset', $4, $5)`,
-      [journalId, 'Asset Cost', currentValue, req.params.id, entryNumber]
-    );
-
-    // Gain or Loss
-    if (gainLoss > 0) {
-      // Cr Gain on Disposal
-      await client.query(
-        `INSERT INTO journal_lines (
-          journal_entry_id, account_id, description, debit, credit,
-          source_type, source_id, source_reference
-        ) VALUES ($1, 29, $2, 0, $3, 'asset', $4, $5)`,
-        [journalId, 'Gain on Disposal', gainLoss, req.params.id, entryNumber]
-      );
-  } else if (gainLoss < 0) {
-  // Dr Loss on Disposal
+// Dr Accumulated Depreciation (clear it)
+const accumDep = parseFloat(asset.rows[0].accumulated_depreciation) || 0;
+if (accumDep > 0) {
   await client.query(
     `INSERT INTO journal_lines (
       journal_entry_id, account_id, description, debit, credit,
       source_type, source_id, source_reference
-    ) VALUES ($1, 30, $2, $3, 0, 'asset', $4, $5)`,
+    ) VALUES ($1, 8, $2, $3, 0, 'asset', $4, $5)`,
+    [journalId, 'Accumulated Depreciation Cleared', accumDep, req.params.id, entryNumber]
+  );
+}
+
+// Cr Asset at original cost
+const originalCost = parseFloat(asset.rows[0].purchase_cost) || 0;
+await client.query(
+  `INSERT INTO journal_lines (
+    journal_entry_id, account_id, description, debit, credit,
+    source_type, source_id, source_reference
+  ) VALUES ($1, 7, $2, 0, $3, 'asset', $4, $5)`,
+  [journalId, 'Asset Cost Removed', originalCost, req.params.id, entryNumber]
+);
+
+// Gain or Loss
+if (gainLoss > 0) {
+  await client.query(
+    `INSERT INTO journal_lines (
+      journal_entry_id, account_id, description, debit, credit,
+      source_type, source_id, source_reference
+    ) VALUES ($1, 44, $2, 0, $3, 'asset', $4, $5)`,
+    [journalId, 'Gain on Disposal', gainLoss, req.params.id, entryNumber]
+  );
+} else if (gainLoss < 0) {
+  await client.query(
+    `INSERT INTO journal_lines (
+      journal_entry_id, account_id, description, debit, credit,
+      source_type, source_id, source_reference
+    ) VALUES ($1, 43, $2, $3, 0, 'asset', $4, $5)`,
     [journalId, 'Loss on Disposal', Math.abs(gainLoss), req.params.id, entryNumber]
   );
 }
@@ -463,10 +479,11 @@ router.post('/:id/impair', async (req, res) => {
     const journalId = journal.rows[0].id;
 
     // Dr Impairment Loss (use account 30 if exists, else 28)
-    await client.query(
-      'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit, source_type, source_id, source_reference) VALUES ($1, 28, $2, $3, 0, $4, $5, $6)',
-      [journalId, 'Impairment Loss', impairmentAmount, 'asset', req.params.id, entryNumber]
-    );
+// Dr Impairment Loss
+await client.query(
+  'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit, source_type, source_id, source_reference) VALUES ($1, 42, $2, $3, 0, $4, $5, $6)',
+  [journalId, 'Impairment Loss', impairmentAmount, 'asset', req.params.id, entryNumber]
+);
     await client.query(
       'INSERT INTO journal_lines (journal_entry_id, account_id, description, debit, credit, source_type, source_id, source_reference) VALUES ($1, 8, $2, 0, $3, $4, $5, $6)',
       [journalId, 'Accumulated Depreciation/Impairment', impairmentAmount, 'asset', req.params.id, entryNumber]
